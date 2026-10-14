@@ -100,7 +100,7 @@ svg.scene{width:100%;height:100%;max-height:100%;display:block;border-radius:10p
     <div class="stat lvlstat"><small>Level</small><span id="pace">1</span></div>
     <div class="team" id="team" aria-label="Your team"></div>
     <div class="stat clock"><small id="dayLbl">Day 1</small><div class="bar"><i id="timeBar"></i></div></div>
-    <div class="hudbtns"><button class="btn" id="buyBtn">Buy cars</button><button class="btn" id="pauseBtn">Pause</button></div>
+    <div class="hudbtns"><button class="btn" id="buyBtn">Buy cars</button><button class="btn" id="pauseBtn">Pause</button><button class="btn" id="restartBtn">Restart</button></div>
   </div>
 
   <div class="stage">
@@ -413,10 +413,19 @@ function showIntro(){
      <div class="up"><b>Service customers</b><em>Seat them in the lounge and bring coffee while their car is in the shop.</em></div>
      <div class="up"><b>Grow the store</b><em>Restock at auction, hire the rest of the team, and upgrade the showroom. Every 5 cars sold is a new level, and the showroom gets faster, like Tetris.</em></div>
    </div>
-   <div class="row"><button class="btn red" id="go">${S.day>1?'Continue Day '+S.day:'Open the doors'}</button></div>`;
+   <div class="row"><button class="btn red" id="go">${S.day>1?'Continue Day '+S.day:'Open the doors'}</button>${S.day>1||S.deals?'<button class="btn" id="introRestart">Start over</button>':''}</div>`;
   $('overlay').hidden=false;
   $('modal').querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{S.avatar=b.dataset.a;save();showIntro()});
   $('go').onclick=()=>{initAudio();save();startDay()};
+  if($('introRestart'))$('introRestart').onclick=askRestart;
+}
+function askRestart(){
+  const was=mode;if(mode==='day'&&!paused)togglePause(true);
+  $('modal').innerHTML=`<h2>Start over?</h2><p class="sub">This goes back to Day 1 with $150,000. You lose your cash, cars, team, upgrades and level.</p>
+   <div class="row"><button class="btn red" id="rsYes">Yes, start over</button><button class="btn" id="rsNo">Keep playing</button></div>`;
+  $('overlay').hidden=false;
+  $('rsYes').onclick=()=>{people.forEach(p=>p.g.remove());people=[];sel=null;S=fresh();save();if(player){player.g.remove();player=null}staff.forEach(s=>s.g.remove());staff=[];paused=false;$('pauseBtn').textContent='Pause';showIntro()};
+  $('rsNo').onclick=()=>{if(was==='day'){$('overlay').hidden=true;togglePause(false)}else if(was==='shop')endDay(true);else showIntro()};
 }
 function togglePause(force){if(mode!=='day')return;paused=force!=null?force:!paused;$('pauseBtn').textContent=paused?'Resume':'Pause'}
 
@@ -478,6 +487,7 @@ function fit(){const r=stageEl.clientWidth/Math.max(1,stageEl.clientHeight);scen
 addEventListener('resize',fit);addEventListener('orientationchange',()=>setTimeout(fit,200));fit();
 $('buyBtn').onclick=openBuy;
 $('pauseBtn').onclick=()=>togglePause();
+$('restartBtn').onclick=askRestart;
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='day')togglePause(true)});
 showIntro();requestAnimationFrame(tick);
 })();

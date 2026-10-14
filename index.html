@@ -74,6 +74,20 @@ svg.scene{width:100%;height:100%;max-height:100%;display:block;border-radius:10p
 @media (max-width:620px){.sum{grid-template-columns:repeat(2,1fr)}.ups{grid-template-columns:1fr}.brand{font-size:18px}.stat span{font-size:17px}.picks{grid-template-columns:repeat(3,1fr)}.pick img{height:90px}}
 @media (max-height:480px){.panel{min-height:0;padding:6px 10px}.panel h3{font-size:15px;margin-bottom:3px}.app{gap:5px}.pick img{height:70px}}
 @media not all and (orientation:portrait){.rot{display:none}}
+@media (orientation:landscape) and (max-height:540px){
+  .app{position:relative;padding:0;gap:0;max-width:none}
+  .hud{position:absolute;top:0;left:0;right:0;z-index:3;padding:6px 12px 14px;gap:12px;flex-wrap:nowrap;background:linear-gradient(rgba(10,12,18,.88),rgba(10,12,18,0))}
+  .brand,.rot{display:none}
+  .stat small{font-size:9px}.stat span{font-size:16px}
+  .btn{padding:5px 10px;font-size:12px}
+  .stage{position:absolute;inset:0}
+  svg.scene{border-radius:0}
+  .panel{position:absolute;left:10px;right:10px;bottom:8px;z-index:3;background:rgba(27,32,41,.9);min-height:0;padding:6px 10px;max-height:46%;overflow:auto}
+  .panel.idle{right:auto;max-width:60%}
+  .panel.idle p{display:none}
+  .panel h3{font-size:15px;margin-bottom:4px}
+  .card{padding:5px 8px;min-width:112px}.card .p{font-size:15px}
+}
 @media (prefers-reduced-motion:reduce){.modal{backdrop-filter:none}}
 </style>
 
@@ -83,7 +97,7 @@ svg.scene{width:100%;height:100%;max-height:100%;display:block;border-radius:10p
     <div class="stat money"><small>Cash</small><span id="cash">$0</span></div>
     <div class="stat stars"><small>Rating</small><span id="rating">4.0★</span></div>
     <div class="stat"><small>Lot</small><span id="lot">0/6</span></div>
-    <div class="stat"><small>Pace</small><span id="pace">Calm</span></div>
+    <div class="stat lvlstat"><small>Level</small><span id="pace">1</span></div>
     <div class="team" id="team" aria-label="Your team"></div>
     <div class="stat clock"><small id="dayLbl">Day 1</small><div class="bar"><i id="timeBar"></i></div></div>
     <div class="hudbtns"><button class="btn" id="buyBtn">Buy cars</button><button class="btn" id="pauseBtn">Pause</button></div>
@@ -150,10 +164,12 @@ const UPGRADES=[
 ];
 
 // ---- state
-const DAY_LEN=150;
+const DAY_LEN=180;
 // The showroom starts calm and gets busier the more cars you sell (all-time).
-const pace=()=>1+Math.min(1.6,(S.deals||0)*.045);
-const paceName=()=>{const p=pace();return p<1.35?'Calm':p<1.8?'Steady':p<2.3?'Busy':'Rush'};
+// Tetris-style: every 5 cars sold is a new level, and each level speeds the showroom up.
+const level=()=>Math.min(12,1+Math.floor((S.deals||0)/5));
+const pace=()=>1+(level()-1)*.22;
+const paceName=()=>'Level '+level();
 let S;
 function fresh(){return{deals:0,cash:150000,rating:4,day:1,avatar:null,hired:[],lv:{chairs:0,coffee:0,film:0,lot:0,sales:0,ads:0},
   inv:['corsa','terra','strada','volta','corsa','grande'].map(m=>({m}))}}
@@ -214,7 +230,7 @@ function spawn(){
   const look=CUSTOMERS[Math.random()*CUSTOMERS.length|0];
   const o=makeSprite(look,false);
   const p=Object.assign(o,{id:++pid,service,want,budget,x:DOOR[0],y:DOOR[1],tx:FLOOR[slot][0],ty:FLOOR[slot][1],slot,chair:-1,
-    pat:1,patRate:(service?1/85:1/70)*pace(),state:'walk',work:0,coffee:0});
+    pat:1,patRate:(service?1/120:1/100)*pace(),state:'walk',work:0,coffee:0});
   // bubble + patience bar
   const bub=el('g',{},o.g);p.bub=bub;
   const label=service?'SERVICE':`${TYPE_LABEL[want].toUpperCase()} · ${kf(budget)}`;
@@ -234,19 +250,24 @@ function leave(p){p.state='leave';p.slot=-1;p.chair=-1;p.tx=DOOR[0];p.ty=DOOR[1]
 // ---- floating text
 function pop(x,y,text,color){const t=el('text',{x,y,'text-anchor':'middle','font-family':"'Saira Condensed','Arial Narrow',Arial,sans-serif",'font-weight':800,'font-size':36,fill:color||'#4cc38a',stroke:'#0b0d12','stroke-width':6,'paint-order':'stroke'},$('fx'));
   t.textContent=text;let a=0;const step=()=>{a+=.018;t.setAttribute('y',y-a*90);t.setAttribute('opacity',Math.max(0,1-a));if(a<1)requestAnimationFrame(step);else t.remove()};requestAnimationFrame(step)}
+function levelUp(){const g=el('g',{},$('fx'));const r=el('rect',{x:0,y:330,width:1600,height:150,fill:'#0b0d12',opacity:.75},g);
+  const t=el('text',{x:800,y:425,'text-anchor':'middle','font-family':"'Saira Condensed','Arial Narrow',Arial,sans-serif",'font-weight':800,'font-size':96,'letter-spacing':8,fill:'#e9b949'},g);t.textContent='LEVEL '+level();
+  const u=el('text',{x:800,y:465,'text-anchor':'middle','font-family':'Barlow,Arial,sans-serif','font-weight':700,'font-size':26,fill:'#eef1f5'},g);u.textContent='Word is spreading. More customers, less patience.';
+  sfx('level');setTimeout(()=>g.remove(),2200)}
 function say(p,txt,color){const t=el('text',{x:p.x,y:p.y-hOf(p.y)-48,'text-anchor':'middle','font-family':'Barlow,Arial,sans-serif','font-weight':700,'font-size':22,fill:color,stroke:'#0b0d12','stroke-width':5,'paint-order':'stroke'},$('fx'));t.textContent=txt;setTimeout(()=>t.remove(),1500)}
 
 // ---- money / rating / hud
 function addCash(n,x,y,label){S.cash+=n;if(dayStats&&n>0)dayStats.rev+=n;if(x!=null)pop(x,y,(n>=0?'+':'')+fmt(n)+(label?'  '+label:''),n>=0?'#4cc38a':'#e5484d');hud()}
 function rate(d){S.rating=Math.max(1,Math.min(5,S.rating+d));hud()}
-function hud(){$('cash').textContent=fmt(S.cash);$('rating').textContent=S.rating.toFixed(1)+'★';$('dayLbl').textContent='Day '+S.day;$('lot').textContent=S.inv.length+'/'+lotCap();$('pace').textContent=paceName();
+function hud(){$('cash').textContent=fmt(S.cash);$('rating').textContent=S.rating.toFixed(1)+'★';$('dayLbl').textContent='Day '+S.day;$('lot').textContent=S.inv.length+'/'+lotCap();$('pace').textContent=level();
   $('team').innerHTML=team().map(id=>`<img src="${SPR[id].src}" alt="${staffById(id).name}" title="${staffById(id).name}">`).join('')}
 
 // ---- panel + selection
-function panelIdle(){$('panel').innerHTML=`<h3>Day ${S.day} on the floor</h3><p>Tap a customer. Buyers show the kind of car and budget they want. Service customers need a seat in the lounge.</p>`}
+function panelIdle(){$('panel').classList.add('idle');$('panel').innerHTML=`<h3>Day ${S.day} on the floor</h3><p>Tap a customer. Buyers show the kind of car and budget they want. Service customers need a seat in the lounge.</p>`}
 function deselect(){if(sel)sel.ring.setAttribute('opacity',0);sel=null;if(player){player.tx=HOME[0];player.ty=HOME[1]}panelIdle()}
 function select(p){
   if(mode!=='day'||p.state==='leave')return;
+  $('panel').classList.remove('idle');
   if(sel&&sel!==p)sel.ring.setAttribute('opacity',0);
   sel=p;p.ring.setAttribute('opacity',1);
   if(player){const side=p.x<800?1:-1;player.tx=Math.max(120,Math.min(1540,p.x+side*hOf(p.y)*.32));player.ty=Math.min(890,p.y+14)}
@@ -255,7 +276,7 @@ function select(p){
     if(p.chair>=0){P.innerHTML=`<h3>Service customer · waiting in the lounge</h3><div class="row"><p>Their car is in the shop. Keep them comfortable.</p><button class="btn" id="coffeeBtn">Bring a coffee ($5)</button></div>`;
       $('coffeeBtn').onclick=()=>{if(p.coffee>1)return;p.coffee++;p.pat=Math.min(1,p.pat+.35);addCash(-5,p.x,p.y-hOf(p.y)-40);sfx('ding')};}
     else{const c=freeChair();P.innerHTML=`<h3>Service customer</h3><div class="row"><p>${c>=0?'Seat them in the lounge while their car is serviced.':'The lounge is full. Buy more chairs at the end of the day.'}</p><button class="btn red" id="seatBtn" ${c<0?'disabled':''}>Seat in lounge</button></div>`;
-      $('seatBtn').onclick=()=>{const c=freeChair();if(c<0)return;p.slot=-1;p.chair=c;p.tx=LOUNGE[c][0];p.ty=LOUNGE[c][1];p.state='walk';p.work=0;p.patRate=pace()/(120+35*S.lv.coffee);deselect();sfx('ding')}}
+      $('seatBtn').onclick=()=>{const c=freeChair();if(c<0)return;p.slot=-1;p.chair=c;p.tx=LOUNGE[c][0];p.ty=LOUNGE[c][1];p.state='walk';p.work=0;p.patRate=pace()/(160+40*S.lv.coffee);deselect();sfx('ding')}}
     return}
   const cards=S.inv.map((c,i)=>{const M=MODELS.find(m=>m.id===c.m);const ok=M.type===p.want&&M.price<=p.budget;
     return `<button class="card${ok?' match':''}" data-i="${i}"><b>${M.name}</b><em>${TYPE_LABEL[M.type]}</em><div class="p">${fmt(M.price)}</div></button>`}).join('');
@@ -274,7 +295,7 @@ function offer(p,i){
 }
 function sell(p,i,by){
   const M=MODELS.find(m=>m.id===S.inv[i].m);S.inv.splice(i,1);
-  const before=paceName();S.deals=(S.deals||0)+1;addCash(M.price,p.x,p.y-hOf(p.y)-60,'SOLD');dayStats.sold++;if(paceName()!==before)setTimeout(()=>pop(800,200,'Word is spreading · the showroom is getting '+paceName().toLowerCase(),'#e9b949'),700);rate(.06);sfx('sale');
+  const before=paceName();S.deals=(S.deals||0)+1;addCash(M.price,p.x,p.y-hOf(p.y)-60,'SOLD');dayStats.sold++;if(paceName()!==before)setTimeout(()=>{levelUp()},600);rate(.06);sfx('sale');
   const wasSel=sel===p;
   p.happy=true;p.state='leave';p.slot=-1;p.tx=DOOR[0];p.ty=DOOR[1];p.ring.setAttribute('opacity',0);
   if(wasSel){sel=null;if(player){player.tx=HOME[0];player.ty=HOME[1]}
@@ -343,7 +364,7 @@ function showIntro(){
      <div class="up"><b>Sell cars</b><em>Tap a buyer to see the car type and budget they want, then offer a car. Green cards are a match.</em></div>
      <div class="up"><b>Upsell tint &amp; PPF</b><em>After every sale, offer the tint and paint protection package for extra profit.</em></div>
      <div class="up"><b>Service customers</b><em>Seat them in the lounge and bring coffee while their car is in the shop.</em></div>
-     <div class="up"><b>Grow the store</b><em>Restock at auction, hire the rest of the team, and upgrade the showroom. The more you sell, the busier it gets.</em></div>
+     <div class="up"><b>Grow the store</b><em>Restock at auction, hire the rest of the team, and upgrade the showroom. Every 5 cars sold is a new level, and the showroom gets faster, like Tetris.</em></div>
    </div>
    <div class="row"><button class="btn red" id="go">${S.day>1?'Continue Day '+S.day:'Open the doors'}</button></div>`;
   $('overlay').hidden=false;
@@ -356,14 +377,14 @@ function togglePause(force){if(mode!=='day')return;paused=force!=null?force:!pau
 let ac=null;
 function initAudio(){if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(ac&&ac.state==='suspended')ac.resume()}
 function tone(f,d,v=.12,type='sine',at=0){if(!ac)return;const o=ac.createOscillator(),g=ac.createGain(),t0=ac.currentTime+at;o.type=type;o.frequency.value=f;g.gain.setValueAtTime(v,t0);g.gain.exponentialRampToValueAtTime(.001,t0+d);o.connect(g);g.connect(ac.destination);o.start(t0);o.stop(t0+d)}
-function sfx(n){if(n==='sale'){tone(660,.15,.12,'triangle');tone(880,.2,.12,'triangle',.08);tone(1320,.3,.1,'triangle',.16)}else if(n==='ding')tone(1200,.18,.08);else if(n==='no')tone(220,.25,.1,'sawtooth');else if(n==='door')tone(520,.3,.05)}
+function sfx(n){if(n==='sale'){tone(660,.15,.12,'triangle');tone(880,.2,.12,'triangle',.08);tone(1320,.3,.1,'triangle',.16)}else if(n==='ding')tone(1200,.18,.08);else if(n==='no')tone(220,.25,.1,'sawtooth');else if(n==='door')tone(520,.3,.05);else if(n==='level'){[523,659,784,1047].forEach((f,i)=>tone(f,.25,.12,'square',i*.09))}}
 
 // ---- loop
 function tick(ts){
   requestAnimationFrame(tick);const dt=Math.min(.05,(ts-(last||ts))/1000);last=ts;
   if(mode!=='day'||paused)return;
   t+=dt;$('timeBar').style.width=Math.min(100,t/DAY_LEN*100)+'%';
-  spawnT-=dt;if(spawnT<=0&&t<DAY_LEN-8){spawn();sfx('door');spawnT=Math.max(2.2,(11-S.rating*.6-S.lv.ads*.9)/pace())*(0.8+Math.random()*.4)}
+  spawnT-=dt;if(spawnT<=0&&t<DAY_LEN-8){spawn();sfx('door');spawnT=Math.max(2,(15-S.rating*.6-S.lv.ads*1.1)/pace())*(0.85+Math.random()*.3)}
   // player walks
   if(player){const m=moveToward(player,dt,320);placeSprite(player,player.x,player.y,m?Math.abs(Math.sin(ts/110))*hOf(player.y)*.02:0)}
   // hired staff close deals
@@ -382,7 +403,7 @@ function tick(ts){
   }
   // customers
   for(const p of people.slice()){
-    const walking=moveToward(p,dt,130*(0.85+0.15*pace()));
+    const walking=moveToward(p,dt,110*(0.8+0.2*pace()));
     if(!walking&&p.state==='walk')p.state=p.chair>=0?'seated':'wait';
     else if(!walking&&p.state==='leave'){removePerson(p);continue}
     placeSprite(p,p.x,p.y,walking?Math.abs(Math.sin(ts/100))*hOf(p.y)*.02:0);
@@ -398,6 +419,10 @@ function tick(ts){
   if(t>=DAY_LEN){people.filter(p=>p.state!=='seated'&&p.state!=='leave').forEach(leave);if(!people.length)endDay(false)}
 }
 
+// fill the stage: in wide layouts crop a little ceiling instead of showing empty bars
+const scene=$('scene'),stageEl=document.querySelector('.stage');
+function fit(){const r=stageEl.clientWidth/Math.max(1,stageEl.clientHeight);scene.setAttribute('preserveAspectRatio',r>1.9?'xMidYMax slice':'xMidYMid meet')}
+addEventListener('resize',fit);addEventListener('orientationchange',()=>setTimeout(fit,200));fit();
 $('buyBtn').onclick=openBuy;
 $('pauseBtn').onclick=()=>togglePause();
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='day')togglePause(true)});

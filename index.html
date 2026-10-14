@@ -1,0 +1,407 @@
+<meta charset="utf-8">
+<title>Dealership Tycoon</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;800&family=Barlow:wght@400;600;700&display=swap">
+<style>
+/* Layout: one screen. HUD strip on top, the showroom scene as a wide stage, a context panel under it. Single dusk look by choice. */
+:root{
+  --night:#12151c; --panel:#1b2029; --line:#2c3340; --text:#eef1f5; --dim:#97a1b0;
+  --brand:#d4343a; --gold:#e9b949; --good:#4cc38a; --bad:#e5484d; --glass:#9fc4dd;
+  --display:"Saira Condensed","Arial Narrow",Impact,sans-serif;
+  --body:"Barlow",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{margin:0;background:var(--night);color:var(--text);font-family:var(--body);-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;overflow:hidden}
+.app{height:100%;display:flex;flex-direction:column;gap:8px;padding-inline:16px;padding-block:8px;box-sizing:border-box;max-width:1280px;margin:0 auto}
+.hud{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:.06em;white-space:nowrap}
+.brand b{color:var(--brand)}
+.stat{display:flex;flex-direction:column;line-height:1.1}
+.stat small{font-size:10px;letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
+.stat span{font-family:var(--display);font-weight:800;font-size:20px;font-variant-numeric:tabular-nums}
+.money span{color:var(--good)}
+.stars span{color:var(--gold)}
+.clock{flex:1;min-width:110px}
+.bar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#f0a35e,var(--brand));width:0}
+.hudbtns{display:flex;gap:8px}
+button{font:inherit;cursor:pointer;border:0;color:inherit}
+.btn{background:var(--panel);border:1px solid var(--line);padding:8px 12px;border-radius:8px;font-weight:700;font-size:14px}
+.btn.red{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn:disabled{opacity:.4;cursor:default}
+.btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.stage{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+svg.scene{width:100%;height:100%;max-height:100%;display:block;border-radius:10px;background:#283044}
+.person{cursor:pointer}
+.person.sel .ring{stroke:var(--gold);stroke-width:5}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:84px;box-sizing:border-box}
+.panel h3{margin:0 0 6px;font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:.04em}
+.panel p{margin:0;color:var(--dim);font-size:14px}
+.cards{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.card{flex:0 0 auto;background:#232a35;border:1px solid var(--line);border-radius:8px;padding:8px 10px;text-align:left;min-width:132px}
+.card b{display:block;font-size:14px}
+.card em{font-style:normal;font-size:12px;color:var(--dim)}
+.card .p{font-family:var(--display);font-weight:800;font-size:18px;color:var(--good)}
+.card.match{border-color:var(--good)}
+.card:disabled{opacity:.45}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.overlay{position:fixed;inset:0;background:rgba(8,10,14,.82);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;max-width:640px;width:100%;max-height:100%;overflow:auto;box-sizing:border-box}
+.modal h2{margin:0 0 4px;font-family:var(--display);font-weight:800;font-size:30px;letter-spacing:.04em}
+.modal .sub{color:var(--dim);margin:0 0 14px}
+.sum{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.sum div{background:#232a35;border-radius:8px;padding:8px}
+.sum small{display:block;font-size:10px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase}
+.sum b{font-family:var(--display);font-size:22px;font-variant-numeric:tabular-nums}
+.ups{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px}
+.up{background:#232a35;border:1px solid var(--line);border-radius:8px;padding:10px;text-align:left;display:flex;flex-direction:column;gap:2px}
+.up b{font-size:15px}
+.up em{font-style:normal;font-size:12px;color:var(--dim)}
+.up .c{font-family:var(--display);font-weight:800;color:var(--gold)}
+.up:disabled{opacity:.45}
+.lvl{font-size:11px;color:var(--good)}
+@media (max-width:620px){.sum{grid-template-columns:repeat(2,1fr)}.ups{grid-template-columns:1fr}.brand{font-size:18px}.stat span{font-size:17px}}
+@media (max-height:480px){.panel{min-height:0;padding:6px 10px}.panel h3{font-size:15px;margin-bottom:3px}.app{gap:5px}}
+</style>
+
+<div class="app">
+  <div class="hud">
+    <div class="brand"><b>VELA</b> MOTORS <span style="color:var(--dim);font-weight:600">LAS VEGAS</span></div>
+    <div class="stat money"><small>Cash</small><span id="cash">$0</span></div>
+    <div class="stat stars"><small>Rating</small><span id="rating">4.0★</span></div>
+    <div class="stat clock"><small id="dayLbl">Day 1</small><div class="bar"><i id="timeBar"></i></div></div>
+    <div class="hudbtns"><button class="btn" id="buyBtn">Buy cars</button><button class="btn" id="pauseBtn">Pause</button></div>
+  </div>
+
+  <div class="stage">
+    <svg class="scene" id="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet" aria-label="Showroom">
+      <defs>
+        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3b5a8c"/><stop offset=".55" stop-color="#8aa5c9"/><stop offset="1" stop-color="#f1c7a0"/></linearGradient>
+        <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfe2ee" stop-opacity=".55"/><stop offset="1" stop-color="#a9c8dc" stop-opacity=".25"/></linearGradient>
+        <linearGradient id="interior" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d5850"/><stop offset=".25" stop-color="#e9e2d6"/><stop offset="1" stop-color="#d7cdbd"/></linearGradient>
+        <pattern id="perf" width="22" height="16" patternUnits="userSpaceOnUse"><rect width="22" height="16" fill="#8d9096"/><path d="M3 12 L9 4" stroke="#5c5f66" stroke-width="3" stroke-linecap="round"/><path d="M14 12 L20 4" stroke="#6a6d74" stroke-width="3" stroke-linecap="round"/></pattern>
+        <pattern id="wood" width="120" height="30" patternUnits="userSpaceOnUse"><rect width="120" height="30" fill="#c79f72"/><path d="M0 15H120M60 0V15M20 15V30M95 15V30" stroke="#a9825a" stroke-width="2"/></pattern>
+        <radialGradient id="lamp"><stop offset="0" stop-color="#fff6d8" stop-opacity=".9"/><stop offset="1" stop-color="#fff6d8" stop-opacity="0"/></radialGradient>
+      </defs>
+      <!-- sky + mountains -->
+      <rect width="1600" height="900" fill="url(#sky)"/>
+      <path d="M0 610 L120 540 L230 590 L360 500 L470 575 L600 520 L720 585 L860 510 L980 580 L1120 525 L1260 590 L1400 530 L1600 595 V760 H0 Z" fill="#6c7aa0" opacity=".55"/>
+      <!-- palm -->
+      <g opacity=".75"><path d="M110 760 C115 680 112 620 118 560" stroke="#3a3330" stroke-width="10" fill="none"/><path d="M118 560 C80 540 55 560 40 585 M118 560 C150 535 185 545 200 570 M118 560 C110 525 85 515 70 520 M118 560 C135 525 160 520 175 528" stroke="#2f4a3a" stroke-width="9" fill="none" stroke-linecap="round"/></g>
+      <!-- asphalt + sidewalk -->
+      <rect y="760" width="1600" height="140" fill="#3a3d44"/>
+      <rect y="760" width="1600" height="18" fill="#9a9a96"/>
+      <rect y="886" width="1600" height="8" fill="#c8413f"/>
+      <!-- building -->
+      <g id="building">
+        <rect x="250" y="360" width="1310" height="400" fill="url(#interior)"/>
+        <rect x="250" y="700" width="1310" height="60" fill="url(#wood)"/>
+        <!-- ceiling lights -->
+        <g fill="url(#lamp)"><circle cx="400" cy="400" r="40"/><circle cx="640" cy="400" r="40"/><circle cx="880" cy="400" r="40"/><circle cx="1120" cy="400" r="40"/><circle cx="1360" cy="400" r="40"/></g>
+        <!-- back wall: TV + art -->
+        <rect x="300" y="470" width="190" height="110" rx="4" fill="#15181e"/><rect x="310" y="480" width="170" height="90" fill="#2c4c74"/><path d="M310 545 L360 515 L405 540 L440 505 L480 530 V570 H310Z" fill="#c75b4a" opacity=".7"/>
+        <rect x="1040" y="470" width="150" height="90" fill="#33363d"/><path d="M1050 545 C1090 500 1140 520 1180 490 V550 H1050Z" fill="#8fb4d6"/>
+        <!-- service desk -->
+        <g id="desk"><rect x="1210" y="610" width="200" height="90" rx="4" fill="#f4f4f2"/><rect x="1210" y="610" width="200" height="12" fill="#d8d8d4"/><rect x="1250" y="580" width="40" height="30" fill="#1f2329"/><rect x="1330" y="580" width="40" height="30" fill="#1f2329"/><text x="1310" y="665" text-anchor="middle" font-family="Barlow,Arial,sans-serif" font-weight="700" font-size="18" fill="#6a6f78">SERVICE</text></g>
+        <!-- lounge rug -->
+        <ellipse cx="420" cy="732" rx="170" ry="22" fill="#8c8a86" opacity=".7"/>
+        <g id="chairs"></g>
+        <!-- glass + mullions -->
+        <rect x="250" y="360" width="1310" height="400" fill="url(#glass)"/>
+        <g stroke="#c9d3db" stroke-width="5" id="mullions"></g>
+        <!-- door -->
+        <rect x="1465" y="560" width="80" height="200" fill="#dfe8ee" opacity=".55" stroke="#e8edf1" stroke-width="5"/><rect x="1496" y="640" width="5" height="40" fill="#e8edf1"/>
+        <!-- perforated band -->
+        <path d="M240 230 H1580 L1560 360 H250 Z" fill="url(#perf)"/>
+        <rect x="240" y="352" width="1340" height="10" fill="#6c6f75"/>
+        <!-- emblem + lettering (made-up brand) -->
+        <g transform="translate(1440 295)"><circle r="44" fill="none" stroke="#e7e9ec" stroke-width="7"/><path d="M-26 -18 L0 24 L26 -18" fill="none" stroke="#e7e9ec" stroke-width="9" stroke-linejoin="round"/></g>
+        <text x="900" y="318" text-anchor="middle" font-family="'Saira Condensed','Arial Narrow',Arial,sans-serif" font-weight="800" font-size="74" letter-spacing="6"><tspan fill="#d4343a">VELA</tspan><tspan fill="#f3f4f6"> MOTORS</tspan><tspan fill="#f3f4f6" font-weight="600" font-size="48"> LAS VEGAS</tspan></text>
+      </g>
+      <g id="showroomCars"></g>
+      <g id="people"></g>
+      <g id="lotCars"></g>
+      <g id="fx"></g>
+    </svg>
+  </div>
+
+  <div class="panel" id="panel"><h3>Welcome to Vela Motors</h3><p>Customers walk in through the door on the right. Tap one to see what they want.</p></div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id), NS='http://www.w3.org/2000/svg';
+const el=(tag,attrs,parent)=>{const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e};
+const fmt=n=>'$'+Math.round(n).toLocaleString('en-US');
+const k=n=>'$'+Math.round(n/1000)+'k';
+
+// ---- catalog (made-up models)
+const MODELS=[
+  {id:'corsa', name:'Vela Corsa',  type:'sedan', price:42000, color:'#c9ccd1'},
+  {id:'strada',name:'Vela Strada', type:'sedan', price:56000, color:'#1f2a44'},
+  {id:'terra', name:'Vela Terra',  type:'suv',   price:54000, color:'#f2f2f0'},
+  {id:'grande',name:'Vela Grande', type:'suv',   price:79000, color:'#2b2e33'},
+  {id:'volta', name:'Vela e-Volta',type:'ev',    price:68000, color:'#3d6fa8'},
+  {id:'saetta',name:'Vela Saetta', type:'sport', price:96000, color:'#d4343a'},
+];
+const TYPE_LABEL={sedan:'Sedan',suv:'SUV',ev:'Electric',sport:'Sports car'};
+const COST=.88;
+
+const UPGRADES=[
+  {id:'chairs', name:'More lounge chairs', desc:'Seat more service customers.', base:8000, max:3},
+  {id:'coffee', name:'Espresso bar',       desc:'Waiting customers stay patient longer.', base:12000, max:2},
+  {id:'film',   name:'Tint & PPF studio',  desc:'More buyers say yes to tint and paint protection, and it pays more.', base:15000, max:3},
+  {id:'lot',    name:'Bigger lot',         desc:'Stock 2 more cars.', base:20000, max:3},
+  {id:'sales',  name:'Hire a salesperson', desc:'Closes deals on their own.', base:25000, max:3},
+  {id:'ads',    name:'Billboard on the Strip', desc:'More customers walk in.', base:18000, max:3},
+];
+
+// ---- state
+const DAY_LEN=120;
+let S;
+function fresh(){return{cash:150000,rating:4,day:1,lv:{chairs:0,coffee:0,film:0,lot:0,sales:0,ads:0},
+  inv:['corsa','terra','strada','volta','corsa','grande'].map(m=>({m,uid:Math.random()})),best:0}}
+try{S=JSON.parse(localStorage.getItem('vela-save'))}catch(e){}
+if(!S||!S.lv)S=fresh();
+function save(){try{localStorage.setItem('vela-save',JSON.stringify(S))}catch(e){}}
+
+const lotCap=()=>6+2*S.lv.lot;
+const chairCap=()=>3+S.lv.chairs;
+const filmChance=()=>[.3,.45,.6,.75][S.lv.film];
+const filmValue=()=>[900,1400,1900,2600][S.lv.film];
+
+let mode='menu',t=0,spawnT=2,people=[],sel=null,last=0,salesT=[],dayStats=null,paused=false;
+
+// ---- drawing helpers
+function carShape(g,type,color,scale){
+  const s=scale||1, w=260*s;
+  const body={
+    sedan:'M10 70 C14 52 40 46 70 44 L100 22 C120 12 170 12 190 24 L218 44 C238 46 252 52 254 70 L254 82 H10 Z',
+    suv:'M10 72 C12 50 30 40 60 38 L74 12 C80 6 190 6 205 14 L228 38 C246 40 254 50 254 72 L254 84 H10 Z',
+    ev:'M10 70 C16 50 50 44 80 42 L112 18 C135 8 175 10 196 24 L224 44 C242 48 252 56 254 70 L254 82 H10 Z',
+    sport:'M8 74 C14 60 50 54 90 50 L126 30 C146 22 178 24 196 34 L230 52 C246 56 254 62 254 74 L254 82 H8 Z',
+  }[type];
+  const win={sedan:'M78 44 L104 26 C120 18 166 18 184 28 L208 44 Z',suv:'M70 38 L82 16 H196 L220 38 Z',
+    ev:'M88 42 L114 22 C134 14 172 15 190 27 L214 42 Z',sport:'M98 50 L128 34 C144 28 174 28 190 37 L216 50 Z'}[type];
+  const G=el('g',{transform:`scale(${s})`},g);
+  el('ellipse',{cx:132,cy:92,rx:128,ry:8,fill:'#000',opacity:.25},G);
+  el('path',{d:body,fill:color,stroke:'#0f1115','stroke-width':2},G);
+  el('path',{d:win,fill:'#1d2733',opacity:.9},G);
+  el('path',{d:'M14 64 H250',stroke:'#fff',opacity:.18,'stroke-width':3},G);
+  el('rect',{x:240,y:60,width:12,height:6,rx:2,fill:'#ffe9b0'},G);
+  el('rect',{x:10,y:60,width:10,height:6,rx:2,fill:'#d4343a'},G);
+  for(const cx of [62,200]){el('circle',{cx,cy:82,r:20,fill:'#111'},G);el('circle',{cx,cy:82,r:11,fill:'#a9adb3'},G);el('circle',{cx,cy:82,r:4,fill:'#333'},G)}
+  return w;
+}
+function drawStatic(){
+  const m=$('mullions');for(let x=250;x<=1560;x+=131)el('line',{x1:x,y1:360,x2:x,y2:760},m);
+  el('line',{x1:250,y1:560,x2:1560,y2:560,'stroke-opacity':.5},m);
+}
+function drawChairs(){
+  const c=$('chairs');c.innerHTML='';
+  for(let i=0;i<chairCap();i++){const x=CHAIRS[i][0],y=CHAIRS[i][1];
+    const g=el('g',{transform:`translate(${x} ${y})`},c);
+    el('rect',{x:-30,y:-34,width:60,height:42,rx:4,fill:'#1b1d22'},g);el('rect',{x:-36,y:-18,width:72,height:26,rx:4,fill:'#24272d'},g);
+    el('rect',{x:-30,y:8,width:4,height:10,fill:'#9aa0a8'},g);el('rect',{x:26,y:8,width:4,height:10,fill:'#9aa0a8'},g)}
+}
+const CHAIRS=[[330,712],[420,720],[510,712],[380,690],[470,690],[560,700]];
+const FLOOR=[[720,750],[820,752],[920,750],[1020,752],[1120,750],[650,752],[1180,752]];
+
+function drawCars(){
+  const sc=$('showroomCars'),lc=$('lotCars');sc.innerHTML='';lc.innerHTML='';
+  S.inv.forEach((c,i)=>{const M=MODELS.find(m=>m.id===c.m);
+    if(i<2){const g=el('g',{transform:`translate(${640+i*300} ${660})`},sc);carShape(g,M.type,M.color,.95);
+      el('ellipse',{cx:124,cy:94,rx:130,ry:10,fill:'#fff',opacity:.15},g)}
+    else{const j=i-2,row=j%6;const g=el('g',{transform:`translate(${-30+row*270} ${794})`},lc);carShape(g,M.type,M.color,.82)}
+  });
+}
+
+// ---- people
+let pid=0;
+function spawn(){
+  const service=Math.random()<.3;
+  const shirt=['#e5e5e5','#2f6fb3','#b6463c','#3f8f5a','#7a5aa8','#c48a2c','#333'][Math.random()*7|0];
+  const skin=['#f1c9a5','#d9a27a','#a86f4c','#7a4a2e','#e8b994'][Math.random()*5|0];
+  let want=null,budget=0;
+  if(!service){const types=['sedan','suv','ev','sport'],w=[.35,.35,.18,.12];let r=Math.random(),ti=0;for(;ti<3&&r>w[ti];ti++)r-=w[ti];
+    want=types[ti];const opts=MODELS.filter(m=>m.type===want);const base=opts[Math.random()*opts.length|0].price;
+    budget=Math.round(base*(0.92+Math.random()*.35)/1000)*1000}
+  const slot=freeSlot();if(slot<0)return;
+  const p={id:++pid,service,want,budget,shirt,skin,x:1505,y:752,tx:FLOOR[slot][0],ty:FLOOR[slot][1],slot,chair:-1,
+    pat:1,patRate:service?1/40:1/32,state:'walk',work:0,coffee:0};
+  people.push(p);buildPerson(p);
+}
+function freeSlot(){const used=new Set(people.filter(p=>p.slot>=0).map(p=>p.slot));for(let i=0;i<FLOOR.length;i++)if(!used.has(i))return i;return -1}
+function freeChair(){const used=new Set(people.filter(p=>p.chair>=0).map(p=>p.chair));for(let i=0;i<chairCap();i++)if(!used.has(i))return i;return -1}
+function buildPerson(p){
+  const g=el('g',{class:'person'},$('people'));p.g=g;
+  const b=el('g',{},g);p.body=b;
+  el('rect',{x:-10,y:-36,width:8,height:36,rx:3,fill:'#2a2d34'},b);el('rect',{x:2,y:-36,width:8,height:36,rx:3,fill:'#2a2d34'},b);
+  el('rect',{x:-16,y:-88,width:32,height:56,rx:12,fill:p.shirt},b);
+  el('circle',{cx:0,cy:-104,r:15,fill:p.skin},b);
+  el('path',{d:'M-15 -108 C-14 -124 14 -124 15 -108 C8 -114 -8 -114 -15 -108Z',fill:'#2a211c'},b);
+  // bubble
+  const bub=el('g',{transform:'translate(0 -150)'},g);p.bub=bub;
+  const label=p.service?'SERVICE':`${TYPE_LABEL[p.want].toUpperCase()} · ${k(p.budget)}`;
+  const w=label.length*9.5+24;
+  el('rect',{x:-w/2,y:-20,width:w,height:30,rx:15,fill:p.service?'#2b3445':'#fff',stroke:'#0003'},bub);
+  el('text',{x:0,y:1,'text-anchor':'middle','font-family':'Barlow,Arial,sans-serif','font-weight':700,'font-size':16,fill:p.service?'#cfe0ff':'#1a1d22'},bub).textContent=label;
+  // patience ring
+  p.ring=el('circle',{class:'ring',cx:0,cy:-104,r:24,fill:'none',stroke:'#4cc38a','stroke-width':4,'stroke-dasharray':'151','stroke-dashoffset':'0',transform:'rotate(-90 0 -104)'},g);
+  el('rect',{x:-40,y:-180,width:80,height:190,fill:'transparent'},g);
+  g.addEventListener('pointerdown',e=>{e.preventDefault();select(p)});
+}
+function removePerson(p){p.g.remove();people=people.filter(q=>q!==p);if(sel===p){sel=null;panelIdle()}}
+
+// ---- floating text
+function pop(x,y,text,color){const t=el('text',{x,y,'text-anchor':'middle','font-family':"'Saira Condensed','Arial Narrow',Arial,sans-serif",'font-weight':800,'font-size':34,fill:color||'#4cc38a',stroke:'#0b0d12','stroke-width':5,'paint-order':'stroke'},$('fx'));
+  t.textContent=text;let a=0;const step=()=>{a+=.02;t.setAttribute('y',y-a*90);t.setAttribute('opacity',1-a);if(a<1)requestAnimationFrame(step);else t.remove()};requestAnimationFrame(step)}
+
+// ---- money / rating
+function addCash(n,x,y,label){S.cash+=n;dayStats.rev+=Math.max(0,n);if(x!=null)pop(x,y,(n>=0?'+':'')+fmt(n)+(label?'  '+label:''),n>=0?'#4cc38a':'#e5484d');hud()}
+function rate(d){S.rating=Math.max(1,Math.min(5,S.rating+d));hud()}
+function hud(){$('cash').textContent=fmt(S.cash);$('rating').textContent=S.rating.toFixed(1)+'★';$('dayLbl').textContent='Day '+S.day}
+
+// ---- panel
+function panelIdle(){$('panel').innerHTML=`<h3>Day ${S.day} on the floor</h3><p>Tap a customer. Buyers show the kind of car and budget they want. Service customers need a seat in the lounge.</p>`}
+function select(p){
+  if(mode!=='day'||p.state==='leave')return;
+  people.forEach(q=>q.g.classList.toggle('sel',q===p));sel=p;
+  const P=$('panel');
+  if(p.service){
+    if(p.chair>=0){P.innerHTML=`<h3>Service customer · waiting for their car</h3><div class="row"><p>Their car is in the shop. Keep them comfortable.</p><button class="btn" id="coffeeBtn">Bring a coffee ($5)</button></div>`;
+      $('coffeeBtn').onclick=()=>{if(p.coffee>1)return;p.coffee++;p.pat=Math.min(1,p.pat+.35);addCash(-5,p.x,p.y-180);sfx('ding')};}
+    else{const c=freeChair();P.innerHTML=`<h3>Service customer</h3><div class="row"><p>${c>=0?'Seat them in the lounge while their car is serviced.':'The lounge is full. Buy more chairs at the end of the day.'}</p><button class="btn red" id="seatBtn" ${c<0?'disabled':''}>Seat in lounge</button></div>`;
+      $('seatBtn').onclick=()=>{const c=freeChair();if(c<0)return;p.slot=-1;p.chair=c;p.tx=CHAIRS[c][0];p.ty=CHAIRS[c][1]+20;p.state='walk';p.work=0;p.patRate=1/(70+25*S.lv.coffee);panelIdle();sel=null;p.g.classList.remove('sel');sfx('ding')}}
+    return}
+  const cards=S.inv.map((c,i)=>{const M=MODELS.find(m=>m.id===c.m);const ok=M.type===p.want&&M.price<=p.budget;
+    return `<button class="card${ok?' match':''}" data-i="${i}"><b>${M.name}</b><em>${TYPE_LABEL[M.type]}${i<2?' · showroom':' · lot'}</em><div class="p">${fmt(M.price)}</div></button>`}).join('');
+  P.innerHTML=`<h3>Wants a ${TYPE_LABEL[p.want]} · budget ${fmt(p.budget)}</h3>${S.inv.length?`<div class="cards">${cards}</div>`:'<p>Your lot is empty. Tap Buy cars to restock.</p>'}`;
+  P.querySelectorAll('.card').forEach(b=>b.onclick=()=>offer(p,+b.dataset.i));
+}
+function offer(p,i){
+  const c=S.inv[i];if(!c)return;const M=MODELS.find(m=>m.id===c.m);
+  let yes=false,msg='';
+  if(M.type!==p.want){msg='Not what I came for.';p.pat-=.35}
+  else if(M.price<=p.budget)yes=true;
+  else if(M.price<=p.budget*1.1){yes=Math.random()<.45;msg=yes?'':'A little over my budget…';if(!yes)p.pat-=.25}
+  else{msg='Way over my budget.';p.pat-=.3}
+  if(!yes){say(p,msg,'#e5484d');sfx('no');select(p);return}
+  sell(p,i,false);
+}
+function sell(p,i,auto){
+  const c=S.inv.splice(i,1)[0];const M=MODELS.find(m=>m.id===c.m);
+  const profit=M.price*(1-COST)+800;
+  addCash(M.price,p.x,p.y-190,'SOLD');dayStats.sold++;dayStats.profit+=profit;rate(.06);sfx('sale');
+  p.state='leave';p.slot=-1;p.tx=1505;p.happy=true;drawCars();
+  if(!auto&&sel===p){
+    const P=$('panel');P.innerHTML=`<h3>Sold the ${M.name}!</h3><div class="row"><p>Offer the Tint &amp; PPF package? About ${fmt(filmValue())}.</p><button class="btn red" id="tintYes">Offer tint &amp; PPF</button><button class="btn" id="tintNo">Skip</button></div>`;
+    $('tintYes').onclick=()=>{if(Math.random()<filmChance()){S.cash+=filmValue();dayStats.rev+=filmValue();dayStats.profit+=filmValue()*.7;dayStats.film++;pop(p.x,p.y-230,'+'+fmt(filmValue())+' TINT & PPF','#e9b949');sfx('sale')}else{say(p,'Maybe next time.','#97a1b0')}hud();sel=null;panelIdle()};
+    $('tintNo').onclick=()=>{sel=null;panelIdle()};
+  }else if(auto&&Math.random()<filmChance()*.7){S.cash+=filmValue();dayStats.rev+=filmValue();dayStats.film++;pop(p.x,p.y-230,'+'+fmt(filmValue())+' TINT','#e9b949')}
+}
+function say(p,txt,color){const t=el('text',{x:p.x,y:p.y-200,'text-anchor':'middle','font-family':'Barlow,Arial,sans-serif','font-weight':700,'font-size':20,fill:color,stroke:'#0b0d12','stroke-width':4,'paint-order':'stroke'},$('fx'));t.textContent=txt;setTimeout(()=>t.remove(),1400)}
+
+// ---- buy cars
+function openBuy(){
+  if(mode==='day'&&!paused)togglePause(true);
+  const room=lotCap()-S.inv.length;
+  $('modal').innerHTML=`<h2>Buy cars at auction</h2><p class="sub">You pay dealer cost (88% of sticker). Lot space: ${S.inv.length} / ${lotCap()} · Cash ${fmt(S.cash)}</p>
+   <div class="ups">${MODELS.map(M=>`<button class="up" data-m="${M.id}" ${S.cash<M.price*COST||room<=0?'disabled':''}><b>${M.name}</b><em>${TYPE_LABEL[M.type]} · sells for ${fmt(M.price)}</em><span class="c">Cost ${fmt(M.price*COST)}</span></button>`).join('')}</div>
+   <div class="row"><button class="btn red" id="closeBuy">Done</button></div>`;
+  $('overlay').hidden=false;
+  $('modal').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{const M=MODELS.find(m=>m.id===b.dataset.m);if(S.cash<M.price*COST||S.inv.length>=lotCap())return;
+    S.cash-=M.price*COST;if(dayStats)dayStats.spent+=M.price*COST;S.inv.push({m:M.id,uid:Math.random()});drawCars();hud();save();sfx('ding');openBuy()});
+  $('closeBuy').onclick=()=>{$('overlay').hidden=true;if(mode==='day')togglePause(false);else if(mode==='shop')endDay(true)};
+}
+
+// ---- day flow
+function startDay(){
+  mode='day';t=0;spawnT=1.5;dayStats={sold:0,rev:0,profit:0,film:0,lost:0,served:0,spent:0};
+  people.forEach(p=>p.g.remove());people=[];sel=null;salesT=Array(S.lv.sales).fill(0).map((_,i)=>6+i*3);
+  $('overlay').hidden=true;drawChairs();drawCars();hud();panelIdle();
+}
+function endDay(reopen){
+  mode='shop';
+  if(!reopen){people.forEach(p=>p.g.remove());people=[];S.best=Math.max(S.best,S.cash);save()}
+  const d=dayStats;
+  $('modal').innerHTML=`<h2>Day ${S.day} closed</h2><p class="sub">The showroom lights dim on the Strip. Spend your profit, then open tomorrow.</p>
+   <div class="sum"><div><small>Cars sold</small><b>${d.sold}</b></div><div><small>Tint & PPF</small><b>${d.film}</b></div><div><small>Customers lost</small><b>${d.lost}</b></div><div><small>Cash</small><b>${fmt(S.cash)}</b></div></div>
+   <div class="ups">${UPGRADES.map(u=>{const lv=S.lv[u.id],cost=u.base*(lv+1),maxed=lv>=u.max;
+     return `<button class="up" data-u="${u.id}" ${maxed||S.cash<cost?'disabled':''}><b>${u.name}</b><em>${u.desc}</em><span class="lvl">Level ${lv} / ${u.max}</span><span class="c">${maxed?'Maxed':fmt(cost)}</span></button>`}).join('')}</div>
+   <div class="row"><button class="btn" id="shopBuy">Buy cars (${S.inv.length}/${lotCap()})</button><button class="btn red" id="nextDay">Open Day ${S.day+1}</button><button class="btn" id="resetBtn" style="margin-left:auto">New game</button></div>`;
+  $('overlay').hidden=false;
+  $('modal').querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>{const u=UPGRADES.find(x=>x.id===b.dataset.u),lv=S.lv[u.id],cost=u.base*(lv+1);
+    if(lv>=u.max||S.cash<cost)return;S.cash-=cost;S.lv[u.id]++;sfx('sale');save();drawChairs();hud();endDay(true)});
+  $('shopBuy').onclick=openBuy;
+  $('nextDay').onclick=()=>{S.day++;save();startDay()};
+  $('resetBtn').onclick=()=>{const b=$('resetBtn');if(b.dataset.c){S=fresh();save();showIntro()}else{b.dataset.c=1;b.textContent='Tap again to erase save'}};
+}
+function showIntro(){
+  mode='menu';drawChairs();drawCars();hud();
+  $('modal').innerHTML=`<h2>Vela Motors · Las Vegas</h2><p class="sub">You run the floor at a luxury dealership just off the Strip.</p>
+   <div class="ups" style="grid-template-columns:1fr">
+     <div class="up"><b>Sell cars</b><em>Tap a buyer to see the type of car and budget they want, then offer a car. Green cards are a match. Push them over budget and they may walk.</em></div>
+     <div class="up"><b>Upsell tint &amp; PPF</b><em>After every sale, offer the window tint and paint protection package for extra profit.</em></div>
+     <div class="up"><b>Take care of service customers</b><em>Seat them in the lounge and bring coffee while their car is in the shop.</em></div>
+     <div class="up"><b>Grow the store</b><em>Restock at auction, then spend profit on chairs, an espresso bar, a tint studio, a bigger lot, salespeople and a billboard.</em></div>
+   </div>
+   <div class="row"><button class="btn red" id="go">${S.day>1?'Continue Day '+S.day:'Open the doors'}</button></div>`;
+  $('overlay').hidden=false;$('go').onclick=()=>{initAudio();startDay()};
+}
+function togglePause(force){
+  if(mode!=='day')return;paused=force!=null?force:!paused;$('pauseBtn').textContent=paused?'Resume':'Pause';
+}
+
+// ---- tiny sounds
+let ac=null;
+function initAudio(){if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(ac&&ac.state==='suspended')ac.resume()}
+function tone(f,d,v=.12,type='sine',at=0){if(!ac)return;const o=ac.createOscillator(),g=ac.createGain(),t0=ac.currentTime+at;o.type=type;o.frequency.value=f;g.gain.setValueAtTime(v,t0);g.gain.exponentialRampToValueAtTime(.001,t0+d);o.connect(g);g.connect(ac.destination);o.start(t0);o.stop(t0+d)}
+function sfx(n){if(n==='sale'){tone(660,.15,.12,'triangle');tone(880,.2,.12,'triangle',.08);tone(1320,.3,.1,'triangle',.16)}else if(n==='ding')tone(1200,.18,.08);else if(n==='no')tone(220,.25,.1,'sawtooth');else if(n==='door')tone(520,.3,.05)}
+
+// ---- loop
+function tick(ts){
+  requestAnimationFrame(tick);const dt=Math.min(.05,(ts-(last||ts))/1000);last=ts;
+  if(mode!=='day'||paused)return;
+  t+=dt;$('timeBar').style.width=Math.min(100,t/DAY_LEN*100)+'%';
+  // spawning
+  spawnT-=dt;if(spawnT<=0&&t<DAY_LEN-8){spawn();sfx('door');const rate=(5.2-S.rating*.45-S.lv.ads*.6);spawnT=Math.max(1.6,rate)*(0.7+Math.random()*.6)}
+  // salespeople
+  salesT=salesT.map(s=>{s-=dt;if(s<=0){const p=people.find(q=>!q.service&&q.state==='wait'&&q!==sel);
+    if(p){const i=S.inv.findIndex(c=>{const M=MODELS.find(m=>m.id===c.m);return M.type===p.want&&M.price<=p.budget});
+      if(i>=0&&Math.random()<.75){sell(p,i,true);pop(p.x,p.y-260,'Salesperson closed it','#cfe0ff')}}
+    return 9+Math.random()*5}return s});
+  for(const p of people.slice()){
+    // move
+    const dx=p.tx-p.x,dy=p.ty-p.y,dist=Math.hypot(dx,dy),sp=240*dt;
+    if(dist>2){p.x+=dx/dist*Math.min(sp,dist);p.y+=dy/dist*Math.min(sp,dist)}
+    else if(p.state==='walk'){p.state=p.chair>=0?'seated':'wait'}
+    else if(p.state==='leave'){removePerson(p);continue}
+    const walking=dist>2;
+    p.body.setAttribute('transform',walking?`translate(0 ${-Math.abs(Math.sin(ts/90))*5})`:(p.state==='seated'?'translate(0 18) scale(1 .85)':''));
+    p.g.setAttribute('transform',`translate(${p.x} ${p.y})`);
+    p.bub.style.display=p.state==='leave'?'none':'';
+    // patience
+    if(p.state==='wait'||p.state==='seated'){p.pat-=p.patRate*dt*(p===sel?.6:1)}
+    if(p.state==='seated'){p.work+=dt;if(p.work>=16){addCash(420,p.x,p.y-180,'SERVICE');dayStats.served++;rate(.05);sfx('sale');p.chair=-1;p.state='leave';p.tx=1505;p.ty=752;if(sel===p){sel=null;panelIdle()}}}
+    if(p.pat<=0&&p.state!=='leave'){p.state='leave';p.slot=-1;p.chair=-1;p.tx=1505;p.ty=752;dayStats.lost++;rate(-.15);say(p,'I\'m leaving.','#e5484d');sfx('no');if(sel===p){sel=null;panelIdle()}}
+    const pc=Math.max(0,p.pat);p.ring.setAttribute('stroke-dashoffset',151*(1-pc));p.ring.setAttribute('stroke',pc>.5?'#4cc38a':pc>.25?'#e9b949':'#e5484d');
+    p.ring.style.display=p.state==='leave'?'none':'';
+  }
+  if(t>=DAY_LEN&&!people.some(p=>p.state==='seated')){endDay(false)}
+  else if(t>=DAY_LEN){people.filter(p=>p.state!=='seated'&&p.state!=='leave').forEach(p=>{p.state='leave';p.slot=-1;p.tx=1505})}
+}
+
+$('buyBtn').onclick=openBuy;
+$('pauseBtn').onclick=()=>togglePause();
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='day')togglePause(true)});
+drawStatic();showIntro();requestAnimationFrame(tick);
+})();
+</script>

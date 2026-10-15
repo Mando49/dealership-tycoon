@@ -439,7 +439,7 @@ function endDay(reopen){
 }
 function showIntro(){
   mode='menu';if(!S.avatar)S.avatar='sp6';hud();
-  const picks=STAFF.map(s=>`<button class="pick${S.avatar===s.id?' on':''}" data-a="${s.id}" ${S.hired.includes(s.id)?'disabled':''}><img src="${SPR[s.id].src}" alt=""><b>${s.name}</b><em>${s.tag}</em></button>`).join('');
+  const picks=STAFF.map(s=>`<button class="pick${S.avatar===s.id?' on':''}" data-a="${s.id}" ><img src="${SPR[s.id].src}" alt=""><b>${s.name}</b><em>${S.hired.includes(s.id)?'On your team':s.tag}</em></button>`).join('');
   const me=staffById(S.avatar);
   $('modal').innerHTML=`<h2>Vela Motors · Las Vegas</h2><p class="sub">You run the floor at a luxury dealership just off the Strip.</p><p class="sub rot">On a phone, turn it sideways for a bigger showroom.</p>
    <h4>Choose your salesperson</h4><div class="picks">${picks}</div>
@@ -452,7 +452,7 @@ function showIntro(){
    </div>
    <div class="row"><button class="btn red" id="go">${S.day>1?'Continue Day '+S.day:'Open the doors'}</button>${S.day>1||S.deals?'<button class="btn" id="introRestart">Start over</button>':''}</div>`;
   $('overlay').hidden=false;
-  $('modal').querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{S.avatar=b.dataset.a;save();showIntro()});
+  $('modal').querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{const id=b.dataset.a;if(S.hired.includes(id))S.hired=S.hired.map(h=>h===id?S.avatar:h);S.avatar=id;save();showIntro()});
   $('go').onclick=()=>{initAudio();save();startDay()};
   if($('introRestart'))$('introRestart').onclick=askRestart;
 }

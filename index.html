@@ -182,7 +182,7 @@ const UPGRADES=[
   {id:'coffee', name:'Espresso bar',       desc:'Waiting customers stay patient longer.', base:12000, max:2},
   {id:'film',   name:'Tint & PPF studio',  desc:'More buyers say yes to tint and paint protection, and it pays more.', base:15000, max:3},
   {id:'lot',    name:'Bigger lot',         desc:'Stock 2 more cars.', base:20000, max:3},
-  {id:'sales',  name:'Hire a salesperson', desc:'Closes deals on their own and brings their perk.', base:25000, max:3},
+  {id:'sales',  name:'Hire a salesperson', desc:'Works the floor on their own and brings their perk.', base:25000, max:1},
   {id:'ads',    name:'Billboard on the Strip', desc:'More customers walk in.', base:18000, max:3},
 ];
 
@@ -199,6 +199,7 @@ function fresh(){return{deals:0,cash:150000,rating:4,day:1,avatar:null,hired:[],
 try{S=JSON.parse(localStorage.getItem('vela-save-2'))}catch(e){}
 if(!S||!S.lv)S=fresh();
 if(!S.hired)S.hired=[];
+if(S.hired.length>1){S.hired=S.hired.slice(0,1);S.lv.sales=1}
 function save(){try{localStorage.setItem('vela-save-2',JSON.stringify(S))}catch(e){}}
 
 const team=()=>[S.avatar,...S.hired].filter(Boolean);
@@ -389,7 +390,7 @@ function openBuy(){
 function buildCrew(){
   if(player)player.g.remove();staff.forEach(s=>s.g.remove());staff=[];
   player=S.avatar?mover(S.avatar,HOME):null;
-  S.hired.forEach((id,i)=>{const s=mover(id,STAFF_SPOT[i]);s.id=id;s.cool=6+i*3;staff.push(s)});
+  S.hired.forEach((id,i)=>{const s=mover(id,STAFF_SPOT[i]);s.id=id;s.cool=4+i*3;staff.push(s)});
 }
 
 // ---- day flow
@@ -422,7 +423,8 @@ function endDay(reopen){
   $('modal').innerHTML=`<h2>Day ${S.day} closed</h2><p class="sub">The lights come on along the Strip. Spend your profit, then open tomorrow.</p>
    <div class="sum"><div><small>Cars sold</small><b>${d.sold}</b></div><div><small>Tint & PPF</small><b>${d.film}</b></div><div><small>Customers lost</small><b>${d.lost}</b></div><div><small>Cash</small><b>${fmt(S.cash)}</b></div></div>
    <div class="ups">${UPGRADES.map(u=>{const lv=S.lv[u.id],cost=u.base*(lv+1),maxed=lv>=u.max||(u.id==='sales'&&!nextHire);
-     const name=u.id==='sales'&&nextHire?`Hire ${nextHire.name}`:u.name, desc=u.id==='sales'&&nextHire?`${nextHire.tag}. ${nextHire.perk} Closes deals on their own.`:u.desc;
+     const hiredName=u.id==='sales'&&S.hired[0]?staffById(S.hired[0]).name:null;
+     const name=hiredName?`${hiredName} is on your team`:u.id==='sales'&&nextHire?`Hire ${nextHire.name}`:u.name, desc=hiredName?`${staffById(S.hired[0]).perk} Greets buyers, closes deals and seats service customers on their own.`:u.id==='sales'&&nextHire?`${nextHire.tag}. ${nextHire.perk} Greets buyers, closes deals and seats service customers on their own.`:u.desc;
      const pips=Array.from({length:u.max},(_,i)=>`<i class="${i<lv?'on':''}"></i>`).join('');
      return `<button class="up${lv>0?' owned':''}${justBought===u.id?' just':''}" data-u="${u.id}" ${maxed||S.cash<cost?'disabled':''}>${lv>0?`<span class="badge">${u.id==='sales'?lv+' hired':'Owned ✓'}</span>`:''}<b>${name}</b><em>${desc}</em><span class="pips">${pips}</span><span class="c">${maxed?'Maxed out':(lv>0?'Upgrade · ':'Buy · ')+fmt(cost)}</span></button>`}).join('')}</div>
    <div class="row"><button class="btn" id="shopBuy">Buy cars (${S.inv.length}/${lotCap()})</button><button class="btn red" id="nextDay">Open Day ${S.day+1}</button><button class="btn" id="resetBtn" style="margin-left:auto">New game</button></div>`;
@@ -479,18 +481,29 @@ function tick(ts){
   // player walks
   doorTick(dt);
   if(player){const m=moveToward(player,dt,300);placeSprite(player,player.x,player.y,...stepPose(player,m))}
-  // hired staff close deals
+  // hired salesperson works the floor on their own: greets buyers, seats service customers
   for(const s of staff){
     s.cool-=dt;
-    if(s.cool<=0&&!s.target){const p=people.find(q=>!q.service&&q.state==='wait'&&q!==sel&&!q.claimed);
-      if(p){const i=S.inv.findIndex(c=>{const M=MODELS.find(m=>m.id===c.m);return M.type===p.want&&M.price<=p.budget});
-        if(i>=0){p.claimed=true;s.target=p;const sp=standSpot(p);goTo(s,sp[0],sp[1])}}
-      if(!s.target)s.cool=3}
+    if(s.cool<=0&&!s.target){
+      const p=people.find(q=>q.state==='wait'&&q!==sel&&!q.claimed&&!q.tried&&(!q.service||freeChair()>=0));
+      if(p){p.claimed=true;s.target=p;s.talk=0;const sp=standSpot(p);goTo(s,sp[0],sp[1])}else s.cool=1.5}
     if(s.target){const p=s.target;
-      if(p.state!=='wait'){s.target=null;goTo(s,s.home[0],s.home[1]);s.cool=4}
-      else if(arrived(s)){const i=S.inv.findIndex(c=>{const M=MODELS.find(m=>m.id===c.m);return M.type===p.want&&M.price<=p.budget});
-        if(i>=0&&Math.random()<.8)sell(p,i,s);else{p.claimed=false;say(p,'Let me think…','#c3cad5')}
-        s.target=null;goTo(s,s.home[0],s.home[1]);s.cool=(14+Math.random()*6)/pace()}}
+      if(p.state!=='wait'||!people.includes(p)){s.target=null;p.claimed=false;goTo(s,s.home[0],s.home[1]);s.cool=2}
+      else if(arrived(s)){
+        s.flip=p.x<s.x;
+        if(!s.talk){s.talk=1;s.talkT=2.2;say(s,'💬','#fff');p.pat=Math.min(1,p.pat+.1)}
+        s.talkT-=dt;
+        if(s.talkT<=0){
+          if(p.service){const c=freeChair();if(c>=0){p.slot=-1;p.chair=c;goTo(p,LOUNGE[c][0],LOUNGE[c][1]);p.state='walk';p.work=0;p.patRate=pace()/(160+40*S.lv.coffee);pop(p.x,p.y-hOf(p.y)-60,staffById(s.id).name+' seated them','#cfe0ff');sfx('ding')}}
+          else{
+            let i=S.inv.findIndex(c=>{const M=MODELS.find(m=>m.id===c.m);return M.type===p.want&&M.price<=p.budget});
+            let ok=i>=0&&Math.random()<.85;
+            if(i<0){i=S.inv.findIndex(c=>{const M=MODELS.find(m=>m.id===c.m);return M.type===p.want&&M.price<=p.budget*stretch()});ok=i>=0&&Math.random()<overBudgetYes()}
+            if(ok)sell(p,i,s);
+            else{p.tried=true;p.claimed=false;say(p,i<0?'Nothing on the lot for me…':'Let me think…','#c3cad5')}
+          }
+          s.target=null;goTo(s,s.home[0],s.home[1]);s.cool=(6+Math.random()*4)/pace()}
+      }}
     const m=moveToward(s,dt,260);placeSprite(s,s.x,s.y,...stepPose(s,m));
   }
   // customers

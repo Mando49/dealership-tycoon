@@ -351,7 +351,7 @@ function select(p){
   const P=$('panel');
   if(p.service){
     if(p.chair>=0){P.innerHTML=`<h3>Service customer · waiting in the lounge</h3><div class="row"><p>Their car is in the shop. Keep them comfortable.</p><button class="btn" id="coffeeBtn">Bring a coffee ($5)</button></div>`;
-      $('coffeeBtn').onclick=()=>{if(p.coffee>1)return;p.coffee++;p.pat=Math.min(1,p.pat+.35);addCash(-5,p.x,p.y-hOf(p.y)-40);sfx('ding')};}
+      $('coffeeBtn').onclick=()=>{if(p.coffee>1)return;p.coffee++;p.pat=Math.min(1,p.pat+.35);addCash(-5,p.x,p.y-hOf(p.y)-40);rate(.02);setTimeout(()=>pop(p.x,p.y-hOf(p.y)-90,'☕ +★','#e9b949'),350);sfx('ding');select(p)};}
     else{const c=freeChair();P.innerHTML=`<h3>Service customer</h3><div class="row"><p>${c>=0?'Seat them in the lounge while their car is serviced.':'The lounge is full. Buy more chairs at the end of the day.'}</p><button class="btn red" id="seatBtn" ${c<0?'disabled':''}>Seat in lounge</button></div>`;
       $('seatBtn').onclick=()=>{const c=freeChair();if(c<0)return;p.slot=-1;p.chair=c;goTo(p,LOUNGE[c][0],LOUNGE[c][1]);p.state='walk';p.work=0;p.patRate=pace()/(160+40*S.lv.coffee);deselect();sfx('ding')}}
     return}

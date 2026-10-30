@@ -430,7 +430,9 @@ function sell(p,i,by,price){
   if(wasSel){sel=null;if(player)goTo(player,HOME[0],HOME[1]);
     const P=$('panel');P.innerHTML=`<h3>Sold the ${M.name}!</h3><div class="row"><p>Offer the Tint &amp; PPF package? About ${fmt(filmValue())}.</p><button class="btn red" id="tintYes">Offer tint &amp; PPF</button><button class="btn" id="tintNo">Skip</button></div>`;
     $('tintYes').onclick=()=>{if(Math.random()<filmChance()){const job={buyer:'Buyer #'+((S.deals||0)),carName:M.name,carType:M.type,pay:filmValue()};sfx('sale');
-        $('panel').innerHTML=`<h3>They said yes to tint!</h3><div class="row"><p>${M.name} · ${fmt(job.pay)} tint &amp; PPF job. Do it now or keep selling?</p><button class="btn red" id="tintNow">Do the job now</button><button class="btn" id="tintLater">Keep selling</button></div>`;
+        if(S.autoTint){sendOut([job],p);panelIdle();return}
+        $('panel').innerHTML=`<h3>They said yes to tint!</h3><div class="row"><p>${M.name} · ${fmt(job.pay)} tint &amp; PPF job.</p><button class="btn red" id="tintNow">Do the job now</button><button class="btn" id="tintLater">Keep selling</button><button class="btn" id="tintOut">Send to tint shop · ${fmt(outPay(job))}</button></div>`;
+        $('tintOut').onclick=()=>{sendOut([job],p);panelIdle()};
         $('tintNow').onclick=()=>{panelIdle();openTintJob(job)};
         $('tintLater').onclick=()=>{S.tintJobs=(S.tintJobs||[]).concat([job]);save();tintJobsHud();pop(p.x,p.y-hOf(p.y)-100,'Tint job waiting','#e9b949');panelIdle()}}
       else{say(p,'Maybe next time.','#c3cad5');hud();panelIdle()}};
@@ -609,7 +611,11 @@ $('buyBtn').onclick=openBuy;
 $('pauseBtn').onclick=()=>togglePause();
 // ---- tint jobs: the showroom pauses while you tint the car in the tint game (tint/ folder, a copy of tint-shop-sim)
 let tintJob=null,tintWasPaused=false;
-function tintJobsHud(){const n=(S.tintJobs||[]).length,b=$('tintJobsBtn');b.hidden=!n;b.textContent='Tint jobs ('+n+')'}
+// someone else does the tint: paid now, but the shop keeps half
+const outPay=j=>Math.round(j.pay*0.5/5)*5;
+function sendOut(jobs,p){const tot=jobs.reduce((a,j)=>a+outPay(j),0);if(!tot)return;S.cash+=tot;if(dayStats){dayStats.rev+=tot;dayStats.film+=jobs.length}
+  if(p)pop(p.x,p.y-hOf(p.y)-100,'+'+fmt(tot)+' TINT (sent out)','#e9b949');save();hud()}
+function tintJobsHud(){const n=(S.tintJobs||[]).length,b=$('tintJobsBtn');b.hidden=!n&&!S.autoTint;b.textContent=S.autoTint&&!n?'Tint: auto':'Tint jobs ('+n+')'}
 function openTintJob(job,wasP){tintJob=job;tintWasPaused=wasP!=null?wasP:paused;togglePause(true);
   const bay=document.createElement('div');bay.id='tintBay';
   bay.innerHTML='<div class="bar"><b>Tint bay · '+job.carName+'</b><span>Showroom paused</span><button class="btn" id="tintLeave">Back to showroom</button></div><iframe src="tint/index.html" title="Tint job" allow="autoplay"></iframe>';
@@ -622,8 +628,12 @@ window.addEventListener('message',e=>{const d=e.data,bay=$('tintBay');if(!d||!ba
   if(d.type==='tintReady'&&tintJob)fr.contentWindow.postMessage(Object.assign({type:'tintJob'},tintJob),'*');
   if(d.type==='tintDone'&&tintJob){S.cash+=d.pay;if(dayStats){dayStats.rev+=d.pay;dayStats.film++}rate(d.stars>=4?.04:d.stars<=2?-.05:0);save();hud();tintJob.done=true}
   if(d.type==='tintClose')closeTintJob(!!(tintJob&&tintJob.done))});
-$('tintJobsBtn').onclick=()=>{const L=S.tintJobs||[];if(!L.length)return;const wasP=paused;togglePause(true);
-  $('panel').classList.remove('idle');$('panel').innerHTML='<h3>Tint jobs waiting</h3><div class="row">'+L.map((j,i)=>`<button class="btn red" data-i="${i}">${j.carName} · ${fmt(j.pay)}</button>`).join('')+'<button class="btn" id="tintJobsClose">Later</button></div>';
+$('tintJobsBtn').onclick=()=>{const L=S.tintJobs||[];const wasP=paused;togglePause(true);
+  const outTot=L.reduce((a,j)=>a+outPay(j),0);
+  $('panel').classList.remove('idle');$('panel').innerHTML='<h3>Tint jobs waiting</h3><div class="row">'+L.map((j,i)=>`<button class="btn red" data-i="${i}">${j.carName} · ${fmt(j.pay)}</button>`).join('')
+    +`<button class="btn" id="tintAllOut">Send all to tint shop · ${fmt(outTot)}</button><button class="btn" id="tintAuto">${S.autoTint?'Always send: ON':'Always send: OFF'}</button><button class="btn" id="tintJobsClose">Later</button></div>`;
+  $('tintAllOut').onclick=()=>{sendOut(S.tintJobs);S.tintJobs=[];save();tintJobsHud();panelIdle();if(!wasP)togglePause(false)};
+  $('tintAuto').onclick=()=>{S.autoTint=!S.autoTint;save();$('tintAuto').textContent=S.autoTint?'Always send: ON':'Always send: OFF'};
   $('panel').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{const j=S.tintJobs.splice(+b.dataset.i,1)[0];save();panelIdle();openTintJob(j,wasP)});
   $('tintJobsClose').onclick=()=>{panelIdle();if(!wasP)togglePause(false)}};
 tintJobsHud();

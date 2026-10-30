@@ -1,0 +1,741 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#15171b">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<title>Tint Shop</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Barlow:wght@400;600&display=swap">
+<style>
+/* Layout: full-screen 3D bay, HUD pinned to the corners, step bar along the bottom. Single dark shop look. */
+:root{
+  --bg:#15171b; --panel:#1f2328e6; --line:#3a414b; --fg:#eef0f3; --muted:#9aa3ad;
+  --accent:#ff7a1a; --wet:#5fb8ff; --good:#58d68d; --bad:#ff5c5c;
+  --display:"Barlow Condensed","Arial Narrow",Impact,sans-serif; --body:"Barlow",system-ui,Arial,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);overflow:hidden;touch-action:none;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#c,#door{position:absolute;inset:0;width:100%;height:100%;display:block}
+#door{background:#050607;transition:opacity .35s}
+.hud{position:absolute;left:0;right:0;pointer-events:none;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#top{top:env(safe-area-inset-top,0px);display:flex;justify-content:space-between;gap:12px;padding-block:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:0;backdrop-filter:blur(6px)}
+.eyebrow{font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.big{font-family:var(--display);font-weight:800;font-size:22px;line-height:1.05}
+.cash{font-variant-numeric:tabular-nums;text-align:right}
+#meter{height:6px;width:140px;background:#0d0f12;border-radius:3px;margin-top:6px;overflow:hidden}
+#meter i{display:block;height:100%;width:100%;background:var(--wet);transition:width .25s linear}
+#tray{max-height:calc(100% - 150px);flex-wrap:wrap;position:absolute;left:max(12px,env(safe-area-inset-left,0px));top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;pointer-events:none}
+#tray div{width:56px;height:56px;border-radius:10px;background:var(--panel);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;position:relative;opacity:.55;transition:opacity .2s,border-color .2s}
+#tray div.on{opacity:1;border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)}
+#tray div.soon{opacity:.3}
+#tray img{width:46px;height:46px;object-fit:contain}
+#tray b{position:absolute;bottom:-1px;left:0;right:0;font-family:var(--display);font-weight:600;font-size:10px;letter-spacing:.08em;text-transform:uppercase;text-align:center;color:var(--fg);text-shadow:0 1px 2px #000}
+#hand{position:absolute;left:0;top:0;width:clamp(90px,24vmin,180px);pointer-events:none;will-change:transform;filter:none}
+@media (max-height:420px){#tray div{width:46px;height:46px}#tray img{width:38px;height:38px}}
+#bottom{bottom:env(safe-area-inset-bottom,0px);display:flex;flex-direction:column;align-items:center;gap:8px;padding-block:12px}
+#steps{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+#steps span{font-family:var(--display);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  padding:4px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted);background:var(--panel)}
+#steps span.on{color:#111;background:var(--accent);border-color:var(--accent)}
+#steps span.done{color:var(--good);border-color:var(--good)}
+#msg{font-size:15px;text-align:center;max-width:46ch;text-wrap:balance;text-shadow:0 1px 3px #000}
+button{pointer-events:auto;font-family:var(--display);font-weight:800;font-size:19px;letter-spacing:.06em;text-transform:uppercase;
+  color:#111;background:var(--accent);border:0;border-radius:8px;padding:12px 26px;cursor:pointer;box-shadow:0 4px 0 #a84a0a}
+button:active{transform:translateY(2px);box-shadow:0 2px 0 #a84a0a}
+button:focus-visible{outline:3px solid #fff;outline-offset:2px}
+button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);box-shadow:none}
+#reveal{position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,7,9,.25),rgba(6,7,9,.6)),url(assets/shop.jpg) center 35%/cover;overflow:hidden}
+#reveal .stage{position:absolute;left:3%;bottom:9%;width:min(52vw,720px);transform:translateX(-120%);transition:transform 1.1s cubic-bezier(.2,.8,.2,1)}
+#reveal.in .stage{transform:none}
+#reveal .stage img{display:block;width:100%;height:auto}
+#reveal .stage::after{content:"";position:absolute;left:8%;right:8%;bottom:-2%;height:9%;border-radius:50%;background:rgba(0,0,0,.55);z-index:-1}
+#reveal .shine{position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.35) 50%,transparent 65%);opacity:0;transform:translateX(-60%)}
+#reveal.in .shine{animation:shine 1.2s .9s ease-out 1 both}
+@keyframes shine{0%{opacity:0;transform:translateX(-60%)}30%{opacity:1}100%{opacity:0;transform:translateX(60%)}}
+#reveal .tag{position:absolute;left:max(16px,env(safe-area-inset-left,0px));top:calc(env(safe-area-inset-top,0px) + 70px);font-family:var(--display);font-weight:800;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:#fff;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 14px}
+body.revealing #tray,body.revealing #bottom{display:none}
+#overlay.side{background:transparent;justify-content:flex-end;padding-right:max(3vw,env(safe-area-inset-right,0px))}
+#overlay.side .card{max-width:min(360px,42vw)}
+@media (max-aspect-ratio:1/1){#reveal{background:linear-gradient(180deg,rgba(6,7,9,.2),rgba(6,7,9,.55)),url(assets/shop.jpg) center top/auto 60% no-repeat,#5b5e63}#reveal .stage{left:4%;width:92%;top:auto;bottom:calc(min(46vh,430px) + 10px)}#overlay.side{justify-content:center;align-items:flex-end;padding-bottom:4vh}#overlay.side .card{max-width:360px}}
+@media (prefers-reduced-motion:reduce){#reveal .stage{transition:none}#reveal.in .shine{animation:none}}
+#overlay.title{background:linear-gradient(90deg,rgba(8,9,11,.88) 0%,rgba(8,9,11,.55) 45%,rgba(8,9,11,.05) 80%),url(assets/title.jpg) center/cover;justify-content:flex-start;align-items:flex-end;padding-left:max(4vw,env(safe-area-inset-left,0px));padding-bottom:max(3vh,env(safe-area-inset-bottom,0px))}
+@media (max-height:430px){.carpic{max-width:180px!important}#overlay .card{padding:12px 18px;gap:7px}#overlay .stars{font-size:26px}#overlay .pay{font-size:28px}h1{font-size:36px}}
+.carpic{display:block;width:100%;max-width:300px;height:auto;align-self:center;margin:-6px 0 -4px}
+.exotic{align-self:center;font-family:var(--display);font-weight:800;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#1a1300;background:linear-gradient(90deg,#f7d774,#e2a93b);border-radius:999px;padding:3px 12px}
+.rack{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.roll{display:flex;flex-direction:column;align-items:center;gap:4px;background:#2a2f36;color:var(--fg);box-shadow:none;border:1px solid var(--line);padding:8px 4px;font-size:16px}
+.roll i{display:block;width:100%;height:26px;border-radius:11px;background:linear-gradient(180deg,rgba(255,255,255,.25),rgba(255,255,255,0) 45%),linear-gradient(rgba(6,9,14,var(--d)),rgba(6,9,14,var(--d))),linear-gradient(90deg,#cfe3f2,#f4f8fb 50%,#bcd3e4)}
+.roll:hover,.roll:focus-visible{border-color:var(--accent)}
+.ups{display:flex;flex-direction:column;gap:6px;max-height:52vh;overflow:auto;text-align:left}
+.up{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;border:1px solid var(--line);border-radius:8px}
+.up b{display:block;font-size:14px}.up span{display:block;font-size:12px;color:var(--muted);line-height:1.3}
+.up button{font-size:15px;padding:7px 12px;flex:none}.up button:disabled{opacity:.4;cursor:default}
+.up em{font-style:normal;font-family:var(--display);font-weight:800;color:var(--good);letter-spacing:.08em;text-transform:uppercase;font-size:13px;flex:none}
+.cash{pointer-events:auto;cursor:pointer}.cash:active{transform:scale(.97)}
+.shoptag{font-family:var(--display);font-weight:800;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-top:3px}
+body.dealer #cashCard{display:none}
+.ask{color:var(--fg)!important;font-size:16px!important;font-style:italic}
+#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0b0c0ecc;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#overlay .card{max-width:360px;width:100%;padding:22px 24px;text-align:center;display:flex;flex-direction:column;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:44px;line-height:.95;margin:0;letter-spacing:.02em}
+h1 small{display:block;font-size:14px;font-weight:600;letter-spacing:.18em;color:var(--accent);margin-bottom:6px}
+#overlay p{margin:0;color:var(--muted);font-size:15px;line-height:1.4}
+.stars{font-size:34px;letter-spacing:.08em;color:#ffcb3d;line-height:1}
+.pay{font-family:var(--display);font-weight:800;font-size:34px;font-variant-numeric:tabular-nums}
+.pay small{font-size:14px;color:var(--muted);font-weight:600;letter-spacing:.1em}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+</head>
+<body>
+<canvas id="c"></canvas>
+<canvas id="door" hidden></canvas>
+<div id="reveal" hidden><div class="stage"><img id="revealCar" alt=""><div class="shine"></div></div><div class="tag" id="revealTag"></div></div>
+
+<div class="hud" id="top">
+  <div class="card">
+    <div class="eyebrow" id="jobLabel">Bay 1</div>
+    <div class="big" id="jobText">Front door window</div>
+  </div>
+  <div class="card cash" id="cashCard" role="button" tabindex="0" aria-label="Open the shop">
+    <div class="eyebrow">Shop cash</div>
+    <div class="big" id="cash">$0</div>
+    <div class="eyebrow" id="rating" style="color:#ffcb3d"></div>
+    <div class="shoptag">Tap for shop ›</div>
+    <div id="meter" hidden><i></i></div>
+  </div>
+</div>
+
+<div id="tray" aria-label="Your tools">
+  <div id="t-spray"><img src="assets/tool-spray-bottle.png" alt="Spray bottle"><b>Spray</b></div>
+  <div id="t-scraper"><img src="assets/tool-scraper.png" alt="Razor scraper"><b>Scrape</b></div>
+  <div id="t-squeegee"><img src="assets/tool-squeegee.png" alt="Squeegee"><b>Squeegee</b></div>
+  <div id="t-heat" hidden><img src="assets/tool-heat-gun.png" alt="Heat gun"><b>Heat</b></div>
+  <div id="t-cloth"><img src="assets/tool-cloth.png" alt="Microfiber cloth"><b>Wipe</b></div>
+  <div id="t-magnifier"><img src="assets/tool-magnifier.png" alt="Magnifier"><b>Inspect</b></div>
+  <div id="t-knife" class="soon"><img src="assets/tool-knife.png" alt="Knife"><b>Cut</b></div>
+</div>
+<img id="hand" alt="" hidden>
+<div class="hud" id="bottom">
+  <div id="steps"></div>
+  <div id="msg">Drag over the glass to spray it down.</div>
+  <div class="row" id="actions"></div>
+</div>
+
+<div id="overlay" class="title">
+  <div class="card" id="panel">
+    <h1><small>Bay 1 · Las Vegas</small>Tint Shop</h1>
+    <p id="intro">Your first customer is here. Spray and scrape the glass, lay the film, push every bubble out before it dries, then wipe it down and inspect.</p>
+    <div class="row"><button id="startBtn">Start the job</button></div>
+    <p style="font-size:13px">Turn your phone sideways for the best view.</p>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="assets/GLTFLoader.js"></script>
+<script>
+(function(){
+"use strict";
+// ---------- customers
+const CUSTOMERS=[
+  {name:"Dave",car:"silver sedan",color:0xb9bec6,shade:"35%",vlt:.35,img:'assets/car-silver.png',ask:"Something classy. Not too dark."},
+  {name:"Priya",car:"red sedan",color:0xb3261e,shade:"20%",vlt:.20,img:'assets/car-red.png',ask:"The sun is killing me on the 15."},
+  {name:"Rico",car:"lime supercar",color:0x8fd400,shade:"20%",vlt:.20,img:'assets/exotic-lime-supercar.png',ask:"Fresh off the truck. Don't you dare scratch it.",exotic:true,pay:450},
+  {name:"Marcus",car:"black sedan",color:0x1b1d22,shade:"5% limo",vlt:.05,img:'assets/car-black.png',ask:"Darkest you got. Limo."},
+  {name:"Elena",car:"white sedan",color:0xe8e9ea,shade:"50%",vlt:.50,img:'assets/car-white.png',ask:"Just enough to cut the heat."},
+  {name:"Vanessa",car:"orange GT coupe",color:0xe8640c,shade:"35%",vlt:.35,img:'assets/exotic-orange-gt.png',ask:"I want ceramic. Perfect, or I'm leaving a review.",exotic:true,pay:400},
+  {name:"Tony",car:"blue sedan",color:0x27479b,shade:"20%",vlt:.20,img:'assets/car-blue.png',ask:"Make it look clean."},
+  {name:"Kenji",car:"electric hypercar",color:0x121216,shade:"5% limo",vlt:.05,img:'assets/exotic-black-hypercar.png',ask:"One of twelve in the world. Take your time.",exotic:true,pay:600},
+  {name:"Big Mike",car:"purple super SUV",color:0x4a2470,shade:"15%",vlt:.15,img:'assets/exotic-purple-suv.png',ask:"Make the purple pop. Dark on the windows.",exotic:true,pay:500},
+];
+const BASE_PAY=120, DRY_TIME=75;
+
+// ---------- state
+let S={cash:0,jobs:0};
+try{const s=JSON.parse(localStorage.getItem('tintshop-save'));if(s&&typeof s.cash==='number')S=s}catch(e){}
+if(!S.up)S.up={};
+if(typeof S.earned!=='number')S.earned=S.cash;
+if(!S.ratings)S.ratings=[];
+const shopRating=()=>S.ratings.length?S.ratings.reduce((a,b)=>a+b,0)/S.ratings.length:4;
+const unlocked=()=>Object.values(WINDOWS).filter(w=>S.earned>=w.unlock);
+// shop upgrades: bought with cash, change how jobs play
+const UPGRADES=[
+  {id:'backpack',name:'Backpack sprayer',desc:'Pump sprayer with a hose gun. Wider spray, wets the glass way faster.',cost:350,img:'assets/tool-backpack-sprayer.png'},
+  {id:'squeegee',name:'Pro squeegee',desc:'Wider blade pushes more bubbles per pull.',cost:300},
+  {id:'slip',name:'Slow-dry slip solution',desc:'Film stays workable 35 seconds longer.',cost:250},
+  {id:'hand',name:'Steady hand training',desc:'Faster pulls still work. Fewer "too fast" warnings.',cost:400},
+  {id:'light',name:'Inspection light',desc:'Magnifier spots missed bubbles from farther away.',cost:200},
+  {id:'sign',name:'Sign on the Strip',desc:'Customers pay 20% more.',cost:800}];
+const has=id=>!!S.up[id];
+const dryTime=()=>DRY_TIME+(has('slip')?35:0);
+// film rack: shade → light let through
+const SHADES=[{l:'5%',v:.05},{l:'15%',v:.15},{l:'20%',v:.20},{l:'35%',v:.35},{l:'50%',v:.50},{l:'70%',v:.70}];
+let jobVlt=.35,wrongShade=false,jobCust=null;
+function save(){try{localStorage.setItem('tintshop-save',JSON.stringify(S))}catch(e){}}
+
+let phase='idle', cust=null, bubbles=[], dirt=[], wet=[], dryLeft=DRY_TIME, jobStart=0, bubblesPopped=0, dirtCleaned=0, warnT=0, actionKey='';
+
+// ---------- three.js scene
+const canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.shadowMap.enabled=true;
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x15171b);
+scene.fog=new THREE.Fog(0x15171b,14,26);
+const camera=new THREE.PerspectiveCamera(42,1,0.1,60);
+// two camera views: WIDE shows the bay, WORK gets you close to the window
+// Work view: face the actual front-door glass nearly square-on and frame it close, keeping the door frame and panel visible.
+const VIEWS={wide:{pos:new THREE.Vector3(2.1,1.9,5.4),look:new THREE.Vector3(0.55,1.05,0.6)},
+             work:{pos:new THREE.Vector3(0.55,1.3,2.2),look:new THREE.Vector3(0.38,1.12,0.9)}};
+let view='wide';const camPos=VIEWS.wide.pos.clone(),camLook=VIEWS.wide.look.clone();
+
+scene.add(new THREE.HemisphereLight(0xcfd8e6,0x2a2621,0.75));
+const sun=new THREE.DirectionalLight(0xfff1dc,0.9);sun.position.set(3,6,5);sun.castShadow=true;
+sun.shadow.mapSize.set(1024,1024);sun.shadow.camera.left=-5;sun.shadow.camera.right=5;sun.shadow.camera.top=5;sun.shadow.camera.bottom=-5;
+scene.add(sun);
+[-2.5,1.5].forEach(x=>{const p=new THREE.PointLight(0xdfe9ff,0.5,12);p.position.set(x,3.4,1.5);scene.add(p)});
+
+// shop: photo backdrop on the back wall, concrete photo texture on the floor (both made in Higgsfield)
+const texLoader=new THREE.TextureLoader();
+const floorTex=texLoader.load('assets/floor.jpg');floorTex.wrapS=floorTex.wrapT=THREE.RepeatWrapping;floorTex.repeat.set(7,7);floorTex.encoding=THREE.sRGBEncoding;
+floorTex.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(30,30),new THREE.MeshStandardMaterial({map:floorTex,color:0xbfc3c8,roughness:.35,metalness:.05}));
+floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+const bayLine=new THREE.Mesh(new THREE.PlaneGeometry(7,0.08),new THREE.MeshBasicMaterial({color:0xf0742a}));
+bayLine.rotation.x=-Math.PI/2;bayLine.position.set(0,0.003,2.4);scene.add(bayLine);
+const shopTex=texLoader.load('assets/shop.jpg');shopTex.encoding=THREE.sRGBEncoding;
+// 16:9 photo; the wall meets the floor about 62% down the picture, so sink the plane so that line sits at y=0
+const BH=14,BW=BH*1344/752;
+const backdrop=new THREE.Mesh(new THREE.PlaneGeometry(BW,BH),new THREE.MeshBasicMaterial({map:shopTex,fog:false}));
+backdrop.position.set(-4.5,BH*(0.5-0.62),-6.5);scene.add(backdrop);
+
+// car: a 3D model made in Higgsfield (image → Tripo), with a simple box car as the fallback while it loads
+const car=new THREE.Group();scene.add(car);
+const paint=new THREE.MeshStandardMaterial({color:0xb9bec6,metalness:.55,roughness:.32});
+const lowpoly=new THREE.Group();car.add(lowpoly);
+(function(){
+const body=new THREE.Mesh(new THREE.BoxGeometry(4.1,0.6,1.8),paint);body.position.y=0.56;body.castShadow=true;lowpoly.add(body);
+const prof=new THREE.Shape();prof.moveTo(-1.2,0.85);prof.lineTo(-0.85,1.4);prof.lineTo(0.9,1.4);prof.lineTo(1.35,0.85);prof.lineTo(-1.2,0.85);
+const cabin=new THREE.Mesh(new THREE.ExtrudeGeometry(prof,{depth:1.6,bevelEnabled:false}),paint);cabin.position.z=-0.8;cabin.castShadow=true;lowpoly.add(cabin);
+const trimM=new THREE.MeshStandardMaterial({color:0x111214,roughness:.6});
+[[-1.4,0.9],[1.3,0.9],[-1.4,-0.9],[1.3,-0.9]].forEach(([x,z])=>{const w=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.24,24),trimM);w.rotation.x=Math.PI/2;w.position.set(x,0.34,z);lowpoly.add(w)});
+})();
+const WIN_COLOR=new THREE.Color(0xffffff);
+let carModel=null;
+// the model ships base64-encoded in a text file (hosting serves text everywhere a .glb is not allowed)
+function loadCar(cb){fetch('assets/car.glb.txt').then(r=>r.text()).then(t=>{const b=atob(t.trim()),u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);new THREE.GLTFLoader().parse(u.buffer,'',cb,()=>{})}).catch(()=>{})}
+if(THREE.GLTFLoader){loadCar(g=>{
+  const m=g.scene;m.traverse(n=>{if(n.type!=='Scene')n.rotation.set(0,0,0);if(n.isMesh){n.castShadow=true;n.material.metalness=0.7;n.material.roughness=0.35;n.material.envMapIntensity=1.1;n.material.color=paint.color}});
+  const box=new THREE.Box3().setFromObject(m);m.position.y=-box.min.y;
+  carModel=m;car.add(m);lowpoly.visible=false;bakeEnv();
+});}
+
+// window you work on: the front door glass, as a polygon in car coordinates (x along the car, y up), on the side facing the camera
+const WIN=[[-0.13,0.985],[0.87,0.985],[0.72,1.17],[0.5,1.345],[-0.09,1.355]];
+const WX=Math.min(...WIN.map(p=>p[0])),WY=Math.min(...WIN.map(p=>p[1]));
+const W=Math.max(...WIN.map(p=>p[0]))-WX,H=Math.max(...WIN.map(p=>p[1]))-WY;
+function glassShape(){const s=new THREE.Shape();WIN.forEach((p,i)=>i?s.lineTo(p[0]-WX,p[1]-WY):s.moveTo(p[0]-WX,p[1]-WY));s.closePath();return s}
+
+// film layer = canvas texture over the front window
+// work view = photo from inside the car looking at the door glass (tint goes on the inside)
+const FRONT={src:'assets/door-inside.jpg',w:1672,h:941,
+  poly:[[92,648],[96,445],[107,440],[143,400],[201,360],[261,320],[324,280],[391,240],[461,200],[538,160],[621,120],[758,80],[900,58],[1080,44],[1272,38],[1434,38],[1540,52],[1603,80],[1602,120],[1593,160],[1576,200],[1562,240],[1547,280],[1534,320],[1520,360],[1507,400],[1495,440],[1483,480],[1471,520],[1458,560],[1449,600],[1430,632],[1395,648]]};
+// every window you can work on: photo from inside the car + the glass outline in that photo's pixels
+const WINDOWS={
+  front:{key:'front',name:'Front door',...FRONT,unlock:0,payMul:1},
+  rear:{key:'rear',name:'Rear door',src:'assets/rear-door-inside.jpg',w:1344,h:752,unlock:1000,payMul:1.15,
+    poly:[[286,96],[318,70],[380,58],[1004,57],[1024,66],[1031,95],[1031,432],[292,406],[283,230]]},
+  back:{key:'back',name:'Back glass',src:'assets/back-glass-inside.jpg',w:1344,h:752,unlock:2500,payMul:1.75,shrink:true,
+    poly:[[122,240],[132,218],[170,200],[400,186],[670,180],[940,184],[1190,206],[1222,226],[1230,246],[1190,330],[1140,410],[1104,456],[1088,463],[260,463],[244,456],[200,400],[150,320]]}};
+let JW=WINDOWS.front,DOOR=FRONT,DBX,DBY,DBW,DBH,CH;const CW=512;
+function measure(){DBX=Math.min(...DOOR.poly.map(p=>p[0]));DBY=Math.min(...DOOR.poly.map(p=>p[1]));
+  DBW=Math.max(...DOOR.poly.map(p=>p[0]))-DBX;DBH=Math.max(...DOOR.poly.map(p=>p[1]))-DBY;CH=Math.round(CW*DBH/DBW)}
+measure();
+const fc=document.createElement('canvas');fc.width=CW;fc.height=CH;const g=fc.getContext('2d');
+const filmTex=new THREE.CanvasTexture(fc);filmTex.encoding=THREE.sRGBEncoding;filmTex.repeat.set(1/W,1/H);
+// water on the glass: real mist and run textures (Higgsfield), shown only where you sprayed, cleared where you scraped
+const mistImg=new Image(),runImg=new Image();mistImg.onload=runImg.onload=()=>{if(phase!=='idle')draw()};
+mistImg.src='assets/overlay-water-spray.png';runImg.src='assets/overlay-water-run.png';
+const mk=document.createElement('canvas');mk.width=CW;mk.height=CH;const mg=mk.getContext('2d');
+let cleared=[];
+// running masks: white where there is water / residue; each spray, scrape or wipe only touches its own spot
+const wm=document.createElement('canvas');wm.width=CW;wm.height=CH;const wmg=wm.getContext('2d');
+const rm=document.createElement('canvas');rm.width=CW;rm.height=CH;const rmg=rm.getContext('2d');
+function maskDot(ctx,x,y,r,add){ctx.globalCompositeOperation=add?'source-over':'destination-out';ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();ctx.globalCompositeOperation='source-over'}
+function maskLine(ctx,x1,y1,x2,y2,w){ctx.globalCompositeOperation='destination-out';ctx.strokeStyle='#fff';ctx.lineCap='round';ctx.lineWidth=w;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.globalCompositeOperation='source-over'}
+function waterLayer(img,alpha,tint){const flat=typeof img==='string';if(!flat&&(!img.complete||!img.naturalWidth))return;
+  mg.globalCompositeOperation='source-over';mg.clearRect(0,0,CW,CH);mg.drawImage(wm,0,0);
+  mg.globalCompositeOperation='source-in';if(flat){mg.fillStyle=img;mg.fillRect(0,0,CW,CH)}else mg.drawImage(img,0,0,CW,CH);
+  // colour the droplets blue but keep their bright highlights
+  if(tint){mg.globalCompositeOperation='source-atop';mg.fillStyle=tint;mg.fillRect(0,0,CW,CH)}
+  mg.globalCompositeOperation='source-over';g.globalAlpha=alpha;g.drawImage(mk,0,0);g.globalAlpha=1}
+const filmMat=new THREE.MeshBasicMaterial({map:filmTex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2});
+const film=new THREE.Mesh(new THREE.ShapeGeometry(glassShape()),filmMat);
+film.position.set(WX,WY,0.9);film.rotation.x=-0.14;car.add(film);
+// cut step: an oversized sheet of film laid on the outside of the glass; you trim it to the window with the knife
+const SM=48; // margin around the window, in canvas pixels
+const sc=document.createElement('canvas');sc.width=CW+2*SM;sc.height=CH+2*SM;const sg=sc.getContext('2d');
+const sheetTex=new THREE.CanvasTexture(sc);sheetTex.encoding=THREE.sRGBEncoding;
+const sheet=new THREE.Mesh(new THREE.PlaneGeometry(W*(CW+2*SM)/CW,H*(CH+2*SM)/CH),new THREE.MeshBasicMaterial({map:sheetTex,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-4}));
+sheet.position.set(W/2,H/2,0.003);sheet.visible=false;film.add(sheet);
+// polygon in canvas pixels (y down)
+let POLY=DOOR.poly.map(p=>[(p[0]-DBX)/DBW*CW,(p[1]-DBY)/DBH*CH]);
+function inPoly(x,y){let c=false;for(let i=0,j=POLY.length-1;i<POLY.length;j=i++){const [xi,yi]=POLY[i],[xj,yj]=POLY[j];
+  if(((yi>y)!==(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi)+xi))c=!c}return c}
+function tracePoly(){g.beginPath();POLY.forEach((p,i)=>i?g.lineTo(p[0],p[1]):g.moveTo(p[0],p[1]));g.closePath()}
+
+// reflections: render the shop once into a cube map and use it as the environment for the car paint
+let envBaked=false;
+function bakeEnv(){if(envBaked)return;envBaked=true;
+  const rt=new THREE.WebGLCubeRenderTarget(256,{format:THREE.RGBFormat,generateMipmaps:true,minFilter:THREE.LinearMipmapLinearFilter});
+  const cc=new THREE.CubeCamera(0.5,40,rt);cc.position.set(0,1.2,0);car.visible=false;cc.update(renderer,scene);car.visible=true;scene.environment=rt.texture}
+
+// squeegee tool
+// the tool in your hand: a photo of the real tool that follows your finger
+// hot = the point of the picture that sits under your finger (fraction of width/height)
+const HAND={gun:{src:'assets/tool-spray-gun.png',hot:[0.15,0.12],tilt:0},
+            spray:{src:'assets/tool-spray-bottle.png',hot:[0.27,0.10],tilt:0},
+            clean:{src:'assets/tool-scraper.png',hot:[0.22,0.68],tilt:-10},
+            squeegee:{src:'assets/tool-squeegee.png',hot:[0.40,0.78],tilt:-8},
+            look:{src:'assets/tool-magnifier.png',hot:[0.37,0.36],tilt:0},
+            wipe:{src:'assets/tool-cloth.png',hot:[0.5,0.5],tilt:0},
+            heat:{src:'assets/tool-heat-gun.png',hot:[0.05,0.25],tilt:-20},
+            cut:{src:'assets/tool-knife.png',hot:[0.08,0.93],tilt:0}};
+const handEl=document.getElementById('hand');let handKey='',handTilt=0,clientX=0,clientY=0;
+function hideHand(){handEl.hidden=true}
+function showHand(key,extraTilt){if(key==='spray'&&has('backpack'))key='gun';const H=HAND[key];if(!H){hideHand();return}
+  if(handKey!==key){handEl.src=H.src;handKey=key}
+  handEl.hidden=false;const w=handEl.offsetWidth||120;
+  handTilt=handTilt*0.8+(extraTilt||0)*0.2;
+  handEl.style.transformOrigin=(H.hot[0]*100)+'% '+(H.hot[1]*100)+'%';
+  handEl.style.transform='translate('+(clientX-H.hot[0]*w)+'px,'+(clientY-H.hot[1]*w)+'px) rotate('+(H.tilt+handTilt)+'deg)'}
+const tool={set visible(v){if(!v)hideHand()},rotation:{z:0}};
+const bottle={set visible(v){if(!v)hideHand()}};
+function setTray(k){const ti=document.querySelector('#t-spray img');if(ti&&has('backpack')&&ti.getAttribute('src').indexOf('backpack')<0){ti.src='assets/tool-backpack-sprayer.png';ti.alt='Backpack sprayer'}['knife','cloth','spray','scraper','squeegee','magnifier','heat'].forEach(n=>$('t-'+n).classList.toggle('on',n===k))}
+
+// ---------- spray grid
+const GX=24,GY=10;
+function resetWet(){wmg.clearRect(0,0,CW,CH);wet=[];for(let y=0;y<GY;y++)for(let x=0;x<GX;x++){const cx=(x+.5)*CW/GX,cy=(y+.5)*CH/GY;wet.push({x:cx,y:cy,in:inPoly(cx,cy),on:false})}}
+function coverage(){let n=0,k=0;wet.forEach(c=>{if(c.in){n++;if(c.on)k++}});return n?k/n:0}
+
+// ---------- drawing the film canvas
+let streaks=[];
+function draw(){
+  g.clearRect(0,0,CW,CH);
+  // clear glass base: a dark cabin behind it with a soft diagonal reflection
+  g.save();tracePoly();g.clip();
+  const sh=g.createLinearGradient(0,0,CW,CH);sh.addColorStop(0,'rgba(255,255,255,0)');sh.addColorStop(.35,'rgba(255,255,255,0.03)');sh.addColorStop(.5,'rgba(255,255,255,0.07)');sh.addColorStop(.62,'rgba(255,255,255,0.02)');sh.addColorStop(1,'rgba(255,255,255,0)');
+  g.fillStyle=sh;g.fillRect(0,0,CW,CH);g.restore();
+  if(phase==='spray'||phase==='clean'||phase==='lay'){
+    g.save();tracePoly();g.clip();
+    const haveWater=mistImg.complete&&mistImg.naturalWidth;
+    // faint wet sheen; the texture carries the droplets (old dots are the fallback while it loads)
+    waterLayer('#2f8cff',phase==='lay'?0.14:0.30);
+    if(!haveWater)wet.forEach(c=>{if(!c.on)return;g.fillStyle='rgba(220,240,255,0.35)';for(let i=0;i<3;i++){g.beginPath();g.arc(c.x+((i*37+c.x)%21)-10,c.y+((i*53+c.y)%17)-8,2.2,0,7);g.fill()}});
+    waterLayer(mistImg,phase==='lay'?0.45:1,phase==='lay'?null:'rgba(40,140,255,0.55)');
+    if(phase==='clean')waterLayer(runImg,0.6,'rgba(40,140,255,0.5)');
+    if(phase!=='clean')streaks.forEach(s=>{g.strokeStyle='rgba(200,230,255,'+(s.a*0.3).toFixed(3)+')';g.lineWidth=s.w;g.lineCap='round';g.beginPath();g.moveTo(s.x1,s.y1);g.lineTo(s.x2,s.y2);g.stroke()});
+    dirt.forEach(d=>{g.beginPath();g.arc(d.x,d.y,d.r,0,7);g.fillStyle='rgba(70,52,40,0.85)';g.fill();
+      g.beginPath();g.arc(d.x+1,d.y-1,d.r*0.4,0,7);g.fillStyle='rgba(120,100,80,0.9)';g.fill()});
+    g.restore();
+  }
+  if(phase==='squeegee'||phase==='inspect'||phase==='lay'||phase==='look'||phase==='wipe'||phase==='shrink'){
+    g.save();tracePoly();g.clip();
+    const a=1-jobVlt*0.92;
+    g.fillStyle='rgba(6,9,14,'+a.toFixed(3)+')';g.fillRect(0,0,CW,CH);
+    // reflection band
+    const grd=g.createLinearGradient(0,0,CW,CH);grd.addColorStop(0,'rgba(255,255,255,0)');grd.addColorStop(.45,'rgba(255,255,255,0.07)');grd.addColorStop(.5,'rgba(255,255,255,0.13)');grd.addColorStop(.55,'rgba(255,255,255,0.07)');grd.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle=grd;g.fillRect(0,0,CW,CH);
+    streaks.forEach(s=>{g.strokeStyle='rgba(180,220,255,'+(s.a*0.35).toFixed(3)+')';g.lineWidth=s.w;g.lineCap='round';g.beginPath();g.moveTo(s.x1,s.y1);g.lineTo(s.x2,s.y2);g.stroke()});
+    gaps.forEach(n=>{let bi=0,bd=1e9;edgePts.forEach((p,i)=>{const d=Math.hypot(p.x-n.x,p.y-n.y);if(d<bd){bd=d;bi=i}});
+      const a=edgePts[(bi-2+edgePts.length)%edgePts.length],c=edgePts[(bi+2)%edgePts.length];
+      g.strokeStyle='rgba(235,245,255,0.85)';g.lineWidth=n.rough?5:7;g.lineCap='round';g.beginPath();g.moveTo(a.x,a.y);g.lineTo(c.x,c.y);g.stroke()});
+    if(phase!=='shrink')bubbles.forEach(b=>{
+      if(phase==='look'&&lookAt&&Math.hypot(b.x-lookAt.x,b.y-lookAt.y)<(has('light')?120:70)){g.beginPath();g.arc(b.x,b.y,b.r+7,0,7);g.strokeStyle='rgba(255,80,80,0.95)';g.lineWidth=3;g.stroke();b.found=true}
+      g.beginPath();g.ellipse(b.x,b.y,b.r,b.r*0.8,0,0,7);g.fillStyle='rgba(170,200,230,0.32)';g.fill();
+      g.strokeStyle='rgba(230,245,255,0.45)';g.lineWidth=1.2;g.stroke();
+      if(b.stuck){g.beginPath();g.arc(b.x,b.y,b.r*0.35,0,7);g.fillStyle='rgba(70,52,40,0.95)';g.fill()}
+      else{g.beginPath();g.arc(b.x-b.r*0.35,b.y-b.r*0.3,b.r*0.28,0,7);g.fillStyle='rgba(255,255,255,0.55)';g.fill()}
+    });
+    g.restore();
+  }
+  if(phase==='wipe')drawSmudge();
+  if(phase==='shrink'||(JW.shrink&&burns))drawFingers();
+  filmTex.needsUpdate=true;renderDoor();
+}
+
+// ---------- audio (code-generated shop sounds)
+let AC=null,noiseBuf=null,squeakNode=null;
+function audio(){if(AC)return;try{AC=new (window.AudioContext||window.webkitAudioContext)();
+  const len=AC.sampleRate*2,b=AC.createBuffer(1,len,AC.sampleRate),d=b.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;noiseBuf=b}catch(e){}}
+function noise(dur,freq,q,vol){if(!AC)return;const s=AC.createBufferSource();s.buffer=noiseBuf;s.loop=true;const f=AC.createBiquadFilter();f.type='bandpass';f.frequency.value=freq;f.Q.value=q;
+  const gn=AC.createGain();gn.gain.setValueAtTime(0.0001,AC.currentTime);gn.gain.exponentialRampToValueAtTime(vol,AC.currentTime+0.02);gn.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+dur);
+  s.connect(f);f.connect(gn);gn.connect(AC.destination);s.start();s.stop(AC.currentTime+dur+0.05)}
+function spraySound(){noise(0.28,4200,0.9,0.35)}
+function popSound(){if(!AC)return;const o=AC.createOscillator(),gn=AC.createGain();o.type='sine';o.frequency.setValueAtTime(520,AC.currentTime);o.frequency.exponentialRampToValueAtTime(180,AC.currentTime+0.12);
+  gn.gain.setValueAtTime(0.25,AC.currentTime);gn.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+0.14);o.connect(gn);gn.connect(AC.destination);o.start();o.stop(AC.currentTime+0.16)}
+function squeak(speed){if(!AC)return;if(!squeakNode){const s=AC.createBufferSource();s.buffer=noiseBuf;s.loop=true;const f=AC.createBiquadFilter();f.type='bandpass';f.Q.value=18;
+  const gn=AC.createGain();gn.gain.value=0;s.connect(f);f.connect(gn);gn.connect(AC.destination);s.start();squeakNode={f,gn}}
+  squeakNode.f.frequency.setTargetAtTime(1400+speed*900,AC.currentTime,0.03);squeakNode.gn.gain.setTargetAtTime(Math.min(0.5,speed*0.5),AC.currentTime,0.03)}
+function squeakOff(){if(squeakNode)squeakNode.gn.gain.setTargetAtTime(0,AC.currentTime,0.05)}
+function ding(stars){if(!AC)return;[0,0.12,0.24].slice(0,Math.max(1,Math.min(3,stars-2))).forEach((t,i)=>{const o=AC.createOscillator(),gn=AC.createGain();o.type='triangle';o.frequency.value=[660,880,1100][i];
+  gn.gain.setValueAtTime(0.0001,AC.currentTime+t);gn.gain.exponentialRampToValueAtTime(0.3,AC.currentTime+t+0.02);gn.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+t+0.5);o.connect(gn);gn.connect(AC.destination);o.start(AC.currentTime+t);o.stop(AC.currentTime+t+0.55)})}
+
+// ---------- HUD
+const $=id=>document.getElementById(id);
+function money(n){return '$'+n.toLocaleString('en-US')}
+const STEP_NAMES={spray:'Spray',clean:'Scrape',lay:'Lay film',shrink:'Heat shrink',squeegee:'Squeegee',wipe:'Wipe',look:'Inspect'};
+function stepList(){return JW.shrink?['spray','clean','lay','shrink','squeegee','wipe','look']:['spray','clean','lay','squeegee','wipe','look']}
+function buildSteps(){$('steps').innerHTML=stepList().map((k,i)=>'<span data-k="'+k+'">'+(i+1)+' '+STEP_NAMES[k]+'</span>').join('')}
+function setStep(k){const L=stepList(),n=L.indexOf(k);$('steps').querySelectorAll('span').forEach((e,i)=>e.className=i<n?'done':i===n?'on':'')}
+function msg(t){$('msg').textContent=t}
+function actions(list){const a=$('actions');a.innerHTML='';list.forEach(([label,fn,ghost])=>{const b=document.createElement('button');b.textContent=label;if(ghost)b.className='ghost';b.addEventListener('click',fn);a.appendChild(b)})}
+$('cash').textContent=money(S.cash);
+function showRating(){$('rating').textContent='★ '+shopRating().toFixed(1)+' shop rating'}showRating();
+
+// ---------- phases
+// ----- cut step
+let edgePts=[],gaps=[],cutNickT=0,lastInsideOff=false;
+function setWindow(w){JW=w;DOOR=w;measure();POLY=DOOR.poly.map(p=>[(p[0]-DBX)/DBW*CW,(p[1]-DBY)/DBH*CH]);
+  [fc,mk,wm,rm,smc].forEach(c=>{c.width=CW;c.height=CH});
+  if(doorImg.src.indexOf(w.src)<0){doorImg.src=w.src}}
+function buildEdge(){edgePts=[];for(let i=0;i<POLY.length;i++){const [x1,y1]=POLY[i],[x2,y2]=POLY[(i+1)%POLY.length],n=Math.max(2,Math.round(Math.hypot(x2-x1,y2-y1)/8));
+  for(let k=0;k<n;k++)edgePts.push({x:x1+(x2-x1)*k/n,y:y1+(y2-y1)*k/n,cut:false,e:i})}}
+function edgeDist(x,y){let best=1e9;for(let i=0;i<POLY.length;i++){const [x1,y1]=POLY[i],[x2,y2]=POLY[(i+1)%POLY.length],dx=x2-x1,dy=y2-y1;
+  const t=Math.max(0,Math.min(1,((x-x1)*dx+(y-y1)*dy)/(dx*dx+dy*dy)));best=Math.min(best,Math.hypot(x-(x1+dx*t),y-(y1+dy*t)))}return best}
+function cutCoverage(){return edgePts.filter(p=>p.cut).length/edgePts.length}
+function drawSheet(){const g2=sg,M=SM;g2.clearRect(0,0,sc.width,sc.height);
+  const a=1-jobVlt*0.92;
+  g2.fillStyle='rgba(8,11,16,'+(a*0.85).toFixed(3)+')';g2.fillRect(0,0,sc.width,sc.height);
+  // liner sheen
+  const sh=g2.createLinearGradient(0,0,sc.width,sc.height);sh.addColorStop(0,'rgba(255,255,255,0)');sh.addColorStop(.5,'rgba(255,255,255,0.10)');sh.addColorStop(1,'rgba(255,255,255,0)');g2.fillStyle=sh;g2.fillRect(0,0,sc.width,sc.height);
+  // guide: the window edge, dashed
+  g2.save();g2.translate(M,M);g2.setLineDash([8,7]);g2.lineWidth=2;g2.strokeStyle='rgba(255,255,255,0.55)';
+  g2.beginPath();POLY.forEach((p,i)=>i?g2.lineTo(p[0],p[1]):g2.moveTo(p[0],p[1]));g2.closePath();g2.stroke();g2.setLineDash([]);
+  // what you have cut so far
+  g2.lineWidth=3;g2.strokeStyle='rgba(255,180,90,0.95)';g2.lineCap='round';
+  for(let i=0;i<edgePts.length;i++){const p=edgePts[i],q=edgePts[(i+1)%edgePts.length];if(p.cut&&q.cut){g2.beginPath();g2.moveTo(p.x,p.y);g2.lineTo(q.x,q.y);g2.stroke()}}
+  // nicks
+  gaps.forEach(n=>{g2.fillStyle='rgba(255,90,90,0.95)';g2.beginPath();g2.arc(n.x,n.y,4,0,7);g2.fill()});
+  g2.restore();sheetTex.needsUpdate=true}
+function cutAt(h){let changed=false;edgePts.forEach(p=>{if(!p.cut&&Math.hypot(p.x-h.x,p.y-h.y)<11){p.cut=true;changed=true}});
+  // blade wandered inside the glass: the film will come up short there (a light gap)
+  const d=edgeDist(h.x,h.y),inside=inPoly(h.x,h.y),off=inside&&d>13;
+  if(off&&!lastInsideOff&&performance.now()-cutNickT>350){cutNickT=performance.now();gaps.push({x:h.x,y:h.y});knifeSound(true);msg('Careful, you cut inside the line. That leaves a light gap.')}
+  lastInsideOff=off;
+  if(changed){if(Math.random()<0.3)knifeSound();const c=cutCoverage();
+    if(performance.now()-cutNickT>1500)msg(c>=0.95?'Pattern cut. Peel the extra film off.':'Trace the dashed line with the knife. '+Math.round(c*100)+'% cut.');
+    const key=c>=0.95?'done':c>=0.5?'part':'';
+    if(key!==actionKey){actionKey=key;actions(key==='done'?[['Peel and set it aside',startWipe]]:key==='part'?[['Done cutting',startWipe,true]]:[])}}
+  drawSheet()}
+function knifeSound(nick){if(!AC)return;noise(nick?0.12:0.06,nick?900:6000,nick?2:6,nick?0.3:0.12)}
+// ----- wipe step: wipe the glass down with the microfiber before you spray
+let smudge=[],spotsLeft=0;const smc=document.createElement('canvas');smc.width=CW;smc.height=CH;const smg=smc.getContext('2d');
+function makeSmudge(){smg.clearRect(0,0,CW,CH);
+  // road film, dust and a few fingerprints, drawn once per job
+  // leftover slip solution: the run texture, squeegee lines along the edges, and a few drips
+  if(runImg.complete&&runImg.naturalWidth){smg.globalAlpha=0.7;smg.drawImage(runImg,0,0,CW,CH);smg.globalAlpha=1}
+  smg.strokeStyle='rgba(210,230,255,0.28)';smg.lineCap='round';
+  for(let i=0;i<7;i++){const y=12+Math.random()*(CH-24);smg.lineWidth=1.5+Math.random()*2;smg.beginPath();smg.moveTo(Math.random()*CW*0.3,y);smg.lineTo(CW*(0.6+Math.random()*0.4),y+(Math.random()*16-8));smg.stroke()}
+  for(let i=0;i<40;i++){const x=Math.random()*CW,y=Math.random()*CH,r=3+Math.random()*6;smg.fillStyle='rgba(225,240,255,0.5)';smg.beginPath();smg.ellipse(x,y,r*0.8,r,0,0,7);smg.fill()}
+  rmg.clearRect(0,0,CW,CH);smudge=[];for(let y=0;y<GY;y++)for(let x=0;x<GX;x++){const cx=(x+.5)*CW/GX,cy=(y+.5)*CH/GY;smudge.push({x:cx,y:cy,in:inPoly(cx,cy),dirty:true});maskDot(rmg,cx,cy,30,true)}}
+function wipeCoverage(){let n=0,k=0;smudge.forEach(c=>{if(c.in){n++;if(!c.dirty)k++}});return n?k/n:1}
+function drawSmudge(){g.save();tracePoly();g.clip();
+  mg.globalCompositeOperation='source-over';mg.clearRect(0,0,CW,CH);mg.drawImage(rm,0,0);
+  mg.globalCompositeOperation='source-in';mg.drawImage(smc,0,0);mg.globalCompositeOperation='source-over';
+  g.drawImage(mk,0,0);g.restore()}
+function wipeAt(h){maskDot(rmg,h.x,h.y,40,false);let changed=false;smudge.forEach(c=>{if(c.dirty&&c.in&&Math.hypot(c.x-h.x,c.y-h.y)<44){c.dirty=false;changed=true}});
+  draw();if(changed){if(Math.random()<0.25)noise(0.18,1800,0.7,0.12);const cov=wipeCoverage();
+    msg(cov>=0.96?'All wiped down. Grab the magnifier and inspect.':'Wipe off the water and squeegee marks. '+Math.round(cov*100)+'% done.');
+    const key=cov>=0.96?'done':cov>=0.5?'part':'';
+    if(key!==actionKey){actionKey=key;actions(key==='done'?[['Inspect',startLook]]:key==='part'?[['Inspect anyway',startLook,true]]:[])}}}
+// cut step is parked for now; when it comes back, call this before spraying
+function finishCut(){const missed=edgePts.filter(p=>!p.cut);for(let i=0;i<missed.length;i+=6)gaps.push({x:missed[i].x,y:missed[i].y,rough:true});sheet.visible=false}
+function startWipe(note){if(phase==='wipe'||phase==='look'||phase==='inspect')return;
+  actionKey='';hideHand();squeakOff();makeSmudge();$('meter').hidden=true;
+  phase='wipe';setStep('wipe');setTray('cloth');msg(typeof note==='string'?note:'Wipe the water and squeegee marks off the film and door with the microfiber.');actions([]);draw()}
+function startSpray(){
+  actionKey='';hideHand();showDoor(true);
+  phase='spray';setStep('spray');setTray('spray');msg('Drag over the glass to spray it down.');actions([]);draw()}
+function newJob(){
+  film.material=filmMat;
+  cust=jobCust||CUSTOMERS[S.nextCust]||CUSTOMERS[0];
+  paint.color.setHex(cust.color);
+  $('jobLabel').textContent=cust.name+' · '+cust.car;
+  setWindow(WINDOWS[S.nextWin]||WINDOWS.front);buildSteps();$('t-heat').hidden=!JW.shrink;fingers=[];burns=0;
+  $('jobText').textContent=JW.name+', '+cust.shade+' tint';
+  bubbles=[];dirt=[];streaks=[];bubblesPopped=0;dirtCleaned=0;actionKey='';resetWet();
+  dirt=scatter(9,3.5,3);gaps=[];cleared=[];buildEdge();lastInsideOff=false;
+  smudge=[];spotsLeft=0;sheet.visible=false;jobStart=performance.now();view='work';$('meter').hidden=true;
+  startSpray();
+}
+// scatter n specks or bubbles inside the glass, none too close together
+function scatter(n,rMin,rVar){const out=[];let tries=0;while(out.length<n&&tries<500){tries++;const x=28+Math.random()*(CW-56),y=18+Math.random()*(CH-36);
+  if(!inPoly(x,y))continue;if(out.some(b=>Math.hypot(b.x-x,b.y-y)<34))continue;out.push({x,y,r:rMin+Math.random()*rVar})}return out}
+function startClean(){
+  phase='clean';setStep('clean');setTray('scraper');actionKey='';bottle.visible=false;
+  msg('Scrape the dirt off the glass and push it out past the edge. Anything left gets trapped under the film.');actions([]);draw();
+}
+function startLay(){
+  phase='lay';setStep('lay');actionKey='';tool.visible=false;squeakOff();
+  msg(dirt.length?'Film is on. The dirt you left is trapped under it.':'Film is on. Drag the squeegee from the center out to push every bubble off the edge.');
+  actions([]);
+  bubbles=scatter(14,9,9);
+  // leftover dirt becomes a bubble that will not move
+  dirt.forEach(d=>bubbles.push({x:d.x,y:d.y,r:7,stuck:true}));dirt=[];
+  draw();
+  setTimeout(()=>{if(JW.shrink){startShrink();return}startSqueegee()},500);
+}
+function startSqueegee(){{phase='squeegee';setStep('squeegee');setTray('squeegee');dryLeft=dryTime();$('meter').hidden=false;$('meter').firstElementChild.style.width='100%';msg('Drag the squeegee from the center out to push every bubble off the edge.');actions([]);actionKey='';draw()}}
+// heat shrink: the flat film won't lie on curved glass, so it makes "fingers" along the top and bottom.
+// hold the heat gun on each finger until it flattens; stay too long and the film burns.
+let fingers=[],burns=0,heatAt=null;
+function startShrink(){phase='shrink';setStep('shrink');setTray('heat');burns=0;heatAt=null;actionKey='';
+  fingers=[];const top=POLY.reduce((a,p)=>Math.min(a,p[1]),1e9),bot=POLY.reduce((a,p)=>Math.max(a,p[1]),0);
+  for(let i=0;i<7;i++){const x=CW*(0.14+i*0.12)+Math.random()*10-5;
+    const y=i%2?bot-CH*0.1:top+CH*0.1;if(!inPoly(x,y))continue;fingers.push({x,y,len:CH*(0.3+Math.random()*0.08),up:i%2===0,heat:0,done:false,burnt:false})}
+  msg('The film has fingers on the curve. Hold the heat gun on each one until it lies flat. Not too long or it burns.');actions([]);draw()}
+function heatTick(dt){if(phase!=='shrink'||!down||!heatAt)return;dt=Math.min(dt,0.1);let changed=false;
+  let near=null,nd=60;fingers.forEach(f=>{const d=Math.hypot(f.x-heatAt.x,f.y-heatAt.y);if(d<nd){nd=d;near=f}});
+  [near].filter(f=>f&&!f.burnt).forEach(f=>{const d=nd;
+    f.heat+=dt*(1.25-d/80);changed=true;
+    if(!f.done&&f.heat>=1){f.done=true;popSound()}
+    if(f.heat>=2.1){f.burnt=true;burns++;noise(0.25,500,1.5,0.3);msg('Too long! You burned the film there.')}});
+  if(Math.random()<dt*6)noise(0.08,700,0.6,0.05);
+  if(changed){draw();const left=fingers.filter(f=>!f.done&&!f.burnt).length;
+    if(left===0){const key='done';if(key!==actionKey){actionKey=key;msg(burns?'Shrunk, with '+burns+' burn mark'+(burns===1?'':'s')+'.':'All the fingers are down. Nice heat work.');actions([['Grab the squeegee',startSqueegee]])}}
+    else if(!actionKey&&performance.now()-warnT>1500)msg(left+' finger'+(left===1?'':'s')+' left to shrink.')}}
+function drawFingers(){g.save();tracePoly();g.clip();
+  fingers.forEach(f=>{if(f.burnt){const gr=g.createRadialGradient(f.x,f.y,0,f.x,f.y,22);gr.addColorStop(0,'rgba(90,50,20,.9)');gr.addColorStop(1,'rgba(90,50,20,0)');g.fillStyle=gr;g.beginPath();g.arc(f.x,f.y,22,0,7);g.fill();return}
+    if(f.done&&f.heat<1.6)return;
+    const hot=Math.min(1,f.heat),over=Math.max(0,f.heat-1)/1.1,dir=f.up?-1:1;
+    // a wrinkled ridge of film: dark crease + bright highlight per fold
+    for(let k=-3;k<=3;k++){const x=f.x+k*12,w=1-Math.abs(k)/4,end=f.y+dir*f.len*(1-hot*0.85)*w;
+      g.lineCap='round';
+      g.strokeStyle='rgba(0,0,0,'+(0.45*w).toFixed(2)+')';g.lineWidth=8;g.beginPath();g.moveTo(x+2,f.y);g.quadraticCurveTo(x+6,(f.y+end)/2,x+2,end);g.stroke();
+      g.strokeStyle='rgba('+Math.round(230+25*hot)+','+Math.round(240-120*hot-80*over)+','+Math.round(255-210*hot)+','+(0.9*w*(f.done?0.5:1)).toFixed(2)+')';
+      g.lineWidth=5;g.beginPath();g.moveTo(x,f.y);g.quadraticCurveTo(x+6,(f.y+end)/2,x,end);g.stroke()}
+    if(heatAt&&down&&Math.hypot(f.x-heatAt.x,f.y-heatAt.y)<60&&!f.done){g.strokeStyle='rgba(255,160,40,.8)';g.lineWidth=2;g.beginPath();g.arc(f.x,f.y,26,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,f.heat));g.stroke()}});
+  g.restore()}
+let lookAt=null;
+// inspect step: move the magnifier over the glass; missed bubbles light up red
+function startLook(note){if(phase==='look'||phase==='inspect')return;spotsLeft=Math.round((1-wipeCoverage())*5);
+  phase='look';setStep('look');setTray('magnifier');squeakOff();lookAt=null;$('meter').hidden=true;
+  msg(typeof note==='string'?note:'Move the magnifier over the glass. Missed bubbles show up red.');
+  actions([['Show the customer',finish]]);draw()}
+function finish(){
+  film.material=new THREE.MeshBasicMaterial({color:0x05070a,transparent:true,opacity:0.92-jobVlt*0.85,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2});
+  $('revealCar').src=cust.tinted||cust.img;$('revealCar').alt=cust.name+"'s "+cust.car+' with fresh '+cust.shade+' tint';
+  const used=SHADES.find(f=>f.v===jobVlt);
+  $('revealTag').textContent=wrongShade?'Used '+used.l+' · wanted '+cust.shade:cust.shade+' tint · done';
+  $('revealTag').style.background=wrongShade?'#7a1f1f':'';
+  setTimeout(()=>{showDoor(false);document.body.classList.add('revealing');const r=$('reveal');r.classList.remove('in');r.hidden=false;void r.offsetWidth;r.classList.add('in')},250);
+  phase='inspect';setStep('look');setTray('');tool.visible=false;bottle.visible=false;squeakOff();view='wide';
+  const left=bubbles.length, trapped=bubbles.filter(q=>q.stuck).length, secs=Math.round((performance.now()-jobStart)/1000);
+  const ng=gaps.length,faults=(left+ng+spotsLeft+burns*2)*(cust.exotic?2:1);
+  let stars=faults===0?5:faults<=2?4:faults<=4?3:faults<=7?2:1;
+  if(wrongShade)stars=Math.min(stars,2);
+  const base=Math.round((cust.pay||BASE_PAY)*JW.payMul/5)*5;
+  let pay=Math.round(base*stars/5/5)*5, tip=0;
+  if(stars===5)tip=cust.exotic?Math.round(base*0.25/5)*5:(secs<75?20:0);
+  if(has('sign')){pay=Math.round(pay*1.2/5)*5;tip=Math.round(tip*1.2/5)*5}
+  if(wrongShade){pay=Math.round(pay/2/5)*5;tip=0}
+  if(stars===1)pay=0;
+  const lines={5:["Flawless. Not a single bubble. Here's a little extra.","Looks factory. I'm sending my brother in."],
+    4:["Couple of tiny bubbles, but I'll take it.","Nice work. Almost perfect."],
+    3:["I can see some bubbles from the driver's seat.","It's fine. Not what I was hoping for."],
+    2:["There's bubbles everywhere, man.","I'm paying half. Fix it next time."],
+    1:["I'm not paying for that. Redo it."]}[stars];
+  const say=wrongShade?'That\'s not the shade I asked for. I\'m paying half.':lines[Math.floor(Math.random()*lines.length)];
+  if(DEALER){dealerFinish(stars,pay,tip,say);return}
+  const before=unlocked().map(w=>w.key);
+  S.cash+=pay+tip;S.earned+=pay+tip;S.jobs++;S.ratings.push(stars);if(S.ratings.length>10)S.ratings.shift();
+  const fresh=unlocked().filter(w=>before.indexOf(w.key)<0);
+  pickNext(fresh[0]);save();showRating();$('cash').textContent=money(S.cash);$('meter').hidden=true;
+  ding(stars);
+  $('panel').innerHTML='<div class="eyebrow">'+cust.name+' says</div><div class="stars">'+'★'.repeat(stars)+'<span style="color:#3a414b">'+'★'.repeat(5-stars)+'</span></div>'
+    +'<p style="color:var(--fg);font-size:17px">“'+say+'”</p>'
+    +'<div class="pay">'+money(pay)+(tip?' <small>+ '+money(tip)+' TIP</small>':'')+'</div>'
+    +'<p>'+left+' bubble'+(left===1?'':'s')+' left'+(trapped?' ('+trapped+' trapped dirt)':'')+(ng?' · '+ng+' light gap'+(ng===1?'':'s'):'')+(spotsLeft?' · '+spotsLeft+' water spot'+(spotsLeft===1?'':'s'):'')+(burns?' · '+burns+' burn mark'+(burns===1?'':'s'):'')+' · '+secs+' s · '+dirtCleaned+' dirt cleaned · '+bubblesPopped+' bubbles out</p>'
+    +(fresh.length?'<div class="exotic">Unlocked: '+fresh.map(w=>w.name).join(', ')+' jobs</div>':'')
+    +(rateNote()?'<p style="font-size:13px">'+rateNote()+'</p>':'')
+    +'<div class="row"><button id="nextBtn">Next customer</button></div>';
+  $('nextBtn').addEventListener('click',()=>showArrival());
+  $('overlay').classList.add('side');
+  setTimeout(()=>{$('overlay').hidden=false},1500);
+  msg('');actions([]);
+}
+
+// ---------- pointer → window surface
+const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
+let down=false,lastHit=null,lastT=0,speedEMA=0;
+// where the pointer lands on the plane of the window; works a little past the glass edge so pulls can run off it
+const plane=new THREE.Plane(),pnorm=new THREE.Vector3(),ppt=new THREE.Vector3(),pw=new THREE.Vector3();
+const doorCv=document.getElementById('door'),dg=doorCv.getContext('2d'),doorImg=new Image();doorImg.onload=()=>renderDoor();doorImg.src=DOOR.src;
+let DL={sc:1,ox:0,oy:0};
+function layoutDoor(){const r=doorCv.getBoundingClientRect(),dpr=Math.min(devicePixelRatio,2);
+  if(doorCv.width!==Math.round(r.width*dpr)||doorCv.height!==Math.round(r.height*dpr)){doorCv.width=Math.round(r.width*dpr);doorCv.height=Math.round(r.height*dpr)}
+  // fit the whole window opening on screen, leaving room for the HUD at the top and bottom
+  const sc=Math.min(r.width/DOOR.w,r.height/DOOR.h,(r.width*0.98)/DBW,(r.height*0.74)/DBH);
+  const gx=DBX+DBW/2,gy=DBY+DBH/2;
+  DL={sc,ox:r.width/2-gx*sc+r.width*0.03,oy:r.height*0.46-gy*sc,dpr,w:r.width,h:r.height}}
+function doorShown(){return !doorCv.hidden}
+function showDoor(on){doorCv.hidden=!on;if(on){layoutDoor();renderDoor()}}
+function renderDoor(){if(doorCv.hidden)return;layoutDoor();const {sc,ox,oy,dpr}=DL;
+  dg.setTransform(dpr,0,0,dpr,0,0);dg.fillStyle='#050607';dg.fillRect(0,0,DL.w,DL.h);
+  if(doorImg.complete&&doorImg.naturalWidth)dg.drawImage(doorImg,ox,oy,DOOR.w*sc,DOOR.h*sc);
+  dg.drawImage(fc,ox+DBX*sc,oy+DBY*sc,DBW*sc,DBH*sc)}
+window.addEventListener('resize',()=>renderDoor());
+function hit(ev){
+  if(doorShown()){const r=doorCv.getBoundingClientRect(),ix=(ev.clientX-r.left-DL.ox)/DL.sc,iy=(ev.clientY-r.top-DL.oy)/DL.sc;
+    const x=(ix-DBX)/DBW*CW,y=(iy-DBY)/DBH*CH;
+    if(x<-CW*0.3||x>CW*1.3||y<-CH*0.5||y>CH*1.5)return null;return {x,y,inside:inPoly(x,y)}}
+  const r=canvas.getBoundingClientRect();ndc.x=((ev.clientX-r.left)/r.width)*2-1;ndc.y=-((ev.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(ndc,camera);
+  film.updateWorldMatrix(true,false);pnorm.set(0,0,1).transformDirection(film.matrixWorld);film.getWorldPosition(pw);
+  plane.setFromNormalAndCoplanarPoint(pnorm,pw);
+  if(!ray.ray.intersectPlane(plane,ppt))return null;
+  const l=film.worldToLocal(ppt.clone());const x=l.x/W*CW,y=(1-l.y/H)*CH;
+  if(x<-CW*0.3||x>CW*1.3||y<-CH*0.5||y>CH*1.5)return null;
+  return {p:ppt.clone(),x,y,inside:inPoly(x,y)};
+}
+function placeTool(obj,h,ang){showHand(phase,ang?Math.max(-15,Math.min(15,Math.cos(ang)*12)):0)}
+
+doorCv.addEventListener('pointerdown',ev=>{clientX=ev.clientX;clientY=ev.clientY;if(phase==='spray'||phase==='clean'||phase==='squeegee'||phase==='look'||phase==='cut'||phase==='wipe')showHand(phase);if(phase==='shrink'){const hs=hit(ev);heatAt=hs;showHand('heat')}if(phase==='wipe'){const h1=hit(ev);if(h1)wipeAt(h1)}if(phase==='cut'){const h0=hit(ev);if(h0)cutAt(h0)}if(phase==='look'){const h0=hit(ev);if(h0){lookAt=h0;draw()}}audio();if(AC&&AC.state==='suspended')AC.resume();down=true;doorCv.setPointerCapture(ev.pointerId);const h=hit(ev);lastHit=h;lastT=performance.now();speedEMA=0;
+  if(h&&phase==='spray'){spraySound();sprayAt(h)}});
+doorCv.addEventListener('pointerup',ev=>{down=false;lastHit=null;squeakOff();if(ev.pointerType!=='mouse')hideHand()});
+doorCv.addEventListener('pointerleave',()=>hideHand());
+doorCv.addEventListener('pointercancel',()=>{down=false;lastHit=null;squeakOff()});
+doorCv.addEventListener('pointermove',ev=>{
+  clientX=ev.clientX;clientY=ev.clientY;
+  const h=hit(ev);
+  if(phase==='spray'){if(h)placeTool(bottle,h,0);else bottle.visible=false;
+    if(down&&h){if(lastHit){const d=Math.hypot(h.x-lastHit.x,h.y-lastHit.y),n=Math.ceil(d/14);for(let i=1;i<n;i++)sprayAt({x:lastHit.x+(h.x-lastHit.x)*i/n,y:lastHit.y+(h.y-lastHit.y)*i/n})}
+      sprayAt(h);if(Math.random()<0.15)spraySound()}
+    lastHit=h;}
+  else if(phase==='cut'){if(h){showHand('cut');if(down){if(lastHit){const d=Math.hypot(h.x-lastHit.x,h.y-lastHit.y),n=Math.ceil(d/6);for(let i=1;i<n;i++)cutAt({x:lastHit.x+(h.x-lastHit.x)*i/n,y:lastHit.y+(h.y-lastHit.y)*i/n})}cutAt(h)}}else hideHand();lastHit=h}
+  else if(phase==='wipe'){if(h){showHand('wipe');if(down){if(lastHit){const d=Math.hypot(h.x-lastHit.x,h.y-lastHit.y),n=Math.ceil(d/14);for(let i=1;i<n;i++)wipeAt({x:lastHit.x+(h.x-lastHit.x)*i/n,y:lastHit.y+(h.y-lastHit.y)*i/n})}wipeAt(h)}}else hideHand();lastHit=h}
+  else if(phase==='shrink'){if(h){heatAt=h;showHand('heat')}else{heatAt=null;hideHand()}}
+  else if(phase==='look'){if(h){lookAt=h;showHand('look');draw()}else{lookAt=null;hideHand();draw()}}
+  else if(phase==='squeegee'||phase==='clean'){
+    if(!h){tool.visible=false;lastHit=null;squeakOff();return}
+    const now=performance.now();
+    if(down&&lastHit){const dx=h.x-lastHit.x,dy=h.y-lastHit.y,dist=Math.hypot(dx,dy),dt=Math.max(4,now-lastT);speedEMA=speedEMA*0.6+(dist/dt)*0.4;const speed=speedEMA;
+      const ang=Math.atan2(-dy,dx);placeTool(tool,h,ang);
+      if(dist>0.5){pull(lastHit,h,dx,dy,dist,speed);squeak(Math.min(1.2,speed))}}
+    else placeTool(tool,h,tool.rotation.z);
+    lastHit=h;lastT=now;
+  }
+});
+function sprayAt(h){const R=has('backpack')?64:28;let changed=false;wet.forEach(c=>{if(!c.on&&c.in&&Math.hypot(c.x-h.x,c.y-h.y)<R){c.on=true;changed=true;maskDot(wmg,c.x,c.y,has('backpack')?36:24,true)}});
+  if(changed){draw();const cov=coverage();msg(Math.round(cov*100)+'% wet. Keep spraying.');
+    if(cov>=0.96){msg('Glass is wet. Now scrape it clean.');actions([['Grab the scraper',startClean]])}}}
+// squeegee pull: bubbles under the blade move with it; off the edge = gone
+function pull(a,b,dx,dy,dist,speed){
+  const ux=dx/dist,uy=dy/dist,half=has('squeegee')&&phase==='squeegee'?52:36;
+  if(speed>(has('hand')?3.4:2.2)){warnT=performance.now();msg('Too fast. Slow, steady pulls push the water out.');return}
+  const cleaning=phase==='clean', items=cleaning?dirt:bubbles;
+  for(let i=items.length-1;i>=0;i--){const q=items[i];if(q.stuck)continue;
+    // closest point on segment a→b
+    const t=Math.max(0,Math.min(1,((q.x-a.x)*ux+(q.y-a.y)*uy)/dist));const px=a.x+ux*dist*t,py=a.y+uy*dist*t;
+    const perp=Math.hypot(q.x-px,q.y-py);
+    if(perp<half+q.r*0.6&&t<1){const push=dist*(1-t)+2;q.x+=ux*push;q.y+=uy*push;
+      if(!inPoly(q.x,q.y)){items.splice(i,1);if(cleaning)dirtCleaned++;else bubblesPopped++;popSound();streaks.push({x1:px,y1:py,x2:q.x,y2:q.y,w:4,a:1})}}
+  }
+  streaks.push({x1:a.x,y1:a.y,x2:b.x,y2:b.y,w:half*1.6,a:0.35});
+  if(cleaning)maskLine(wmg,a.x,a.y,b.x,b.y,half*1.5);if(streaks.length>40)streaks.shift();
+  draw();
+  const n=items.length, loose=bubbles.filter(q=>!q.stuck).length, stuck=bubbles.length-loose;
+  if(performance.now()-warnT>1500){
+    if(cleaning)msg(n===0?'Glass is clean. Lay the film.':n+' speck'+(n===1?'':'s')+' of dirt left. Push them off the edge.');
+    else msg(loose===0?(stuck?'All loose bubbles are out. '+stuck+' trapped under dirt.':'Clean! Now wipe it down.'):loose+' bubble'+(loose===1?'':'s')+' left. Push them to the edge.')}
+  const key=(cleaning?n:loose)===0?'clean':'dirty';
+  if(key!==actionKey){actionKey=key;
+    if(cleaning)actions(key==='clean'?[['Lay the film',startLay]]:[['Lay film anyway',startLay,true]]);
+    else actions(key==='clean'?[['Grab the microfiber',startWipe]]:[['Wipe anyway',startWipe,true]])}
+}
+
+// ---------- loop
+let prev=performance.now();
+function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;if(canvas.width!==Math.floor(w*renderer.getPixelRatio())||canvas.height!==Math.floor(h*renderer.getPixelRatio())){renderer.setSize(w,h,false);camera.aspect=w/h;
+  camera.fov=w/h<1?64:w/h<1.4?50:42;camera.updateProjectionMatrix()}}
+function loop(){requestAnimationFrame(loop);const now=performance.now(),dt=(now-prev)/1000;prev=now;resize();
+  const k=1-Math.pow(0.02,dt);camPos.lerp(VIEWS[view].pos,k);camLook.lerp(VIEWS[view].look,k);
+  camera.position.copy(camPos);camera.lookAt(camLook);
+  if(phase==='squeegee'||phase==='clean'){
+    streaks.forEach(s=>s.a=Math.max(0,s.a-dt*0.35));
+    if(Math.floor(now/120)!==Math.floor((now-dt*1000)/120)&&streaks.length)draw();}
+  if(phase==='squeegee'){dryLeft-=dt;$('meter').firstElementChild.style.width=Math.max(0,dryLeft/dryTime()*100)+'%';
+    if(dryLeft<=0){startWipe('The film dried. Whatever is left is staying. Wipe it down.')}}
+  heatTick(dt);
+  if(!doorShown())renderer.render(scene,camera);}
+loop();
+
+// regulars come in order; exotics only once the shop rating is 4.0+ (after 2 jobs)
+function exoticsOK(){return S.jobs>=2&&shopRating()>=4}
+function rateNote(){if(S.jobs<2)return '';return exoticsOK()?'':'Exotic owners only come to shops rated 4.0★ or better.'}
+function pickNext(forceWin){const reg=CUSTOMERS.map((c,i)=>i).filter(i=>!CUSTOMERS[i].exotic),ex=CUSTOMERS.map((c,i)=>i).filter(i=>CUSTOMERS[i].exotic);
+  S.nextCust=(exoticsOK()&&Math.random()<0.4)?ex[Math.floor(Math.random()*ex.length)]:reg[(S.reg=(typeof S.reg==='number'?S.reg+1:0))%reg.length];
+  const u=unlocked();S.nextWin=forceWin?forceWin.key:u[Math.floor(Math.random()*u.length)].key}
+if(typeof S.nextCust!=='number')pickNext();
+function showArrival(){const c=CUSTOMERS[S.nextCust]||CUSTOMERS[0];const w=WINDOWS[S.nextWin]||WINDOWS.front;$('overlay').classList.remove('title','side');$('reveal').hidden=true;document.body.classList.remove('revealing');
+  $('panel').innerHTML='<div class="eyebrow">Customer pulling in</div><img class="carpic" src="'+c.img+'" alt="'+c.name+'\'s '+c.car+'">'
+    +(c.exotic?'<div class="exotic">Exotic · pays '+money(c.pay)+' · picky</div>':'')
+    +'<div class="big">'+c.name+' · '+c.car+'</div><p class="ask">“'+c.ask+'”</p><p>'+w.name+', '+c.shade+' tint · '+money(Math.round((c.pay||BASE_PAY)*w.payMul/5)*5)+'</p>'
+    +(w.shrink?'<p style="font-size:13px">Curved glass: you will need the heat gun.</p>':'')
+    +'<div class="row"><button id="pullBtn">Pull it into the bay</button><button id="shopBtn" class="ghost">Shop · '+money(S.cash)+'</button></div>';
+  $('pullBtn').addEventListener('click',()=>{audio();showRack(c)});$('shopBtn').addEventListener('click',()=>showShop());$('overlay').hidden=false}
+function showRack(c){jobCust=c;const shownAt=performance.now();
+  $('panel').innerHTML='<div class="eyebrow">Film rack</div><div class="big">Pick the film</div><p class="ask">“'+c.ask+'”</p><p>Work order: '+c.shade+' tint</p>'
+    +'<div class="rack">'+SHADES.map((f,i)=>'<button class="roll" data-i="'+i+'" style="--d:'+(0.97-f.v*1.15).toFixed(2)+'"><i></i>'+f.l+'</button>').join('')+'</div>';
+  $('panel').querySelectorAll('.roll').forEach(b=>b.addEventListener('click',()=>{if(performance.now()-shownAt<400)return;const f=SHADES[+b.dataset.i];jobVlt=f.v;wrongShade=f.l!==c.shade.split(' ')[0];
+    $('overlay').hidden=true;newJob();if(wrongShade)msg('Hmm, '+f.l+' film. Was that the right roll?')}))}
+function showShop(){if(!$('overlay').hidden&&!$('panel').querySelector('.ups'))showShop.back=$('panel').innerHTML;if(!$('panel').querySelector('.ups'))showShop.midJob=$('overlay').hidden&&phase!=='idle'&&phase!=='inspect';
+  $('panel').innerHTML='<div class="eyebrow">Shop upgrades</div><div class="big">Cash: '+money(S.cash)+'</div><div class="ups">'
+    +UPGRADES.map(u=>'<div class="up">'+(u.img?'<img src="'+u.img+'" alt="" style="width:40px;height:40px;object-fit:contain;flex:none">':'')+'<div style="flex:1"><b>'+u.name+'</b><span>'+u.desc+'</span></div>'+(has(u.id)?'<em>Owned</em>':'<button data-id="'+u.id+'"'+(S.cash<u.cost?' disabled':'')+'>'+money(u.cost)+'</button>')+'</div>').join('')
+    +'</div><div class="row"><button id="backBtn" class="ghost">Back to the customer</button></div>';
+  $('panel').querySelectorAll('.up button').forEach(b=>b.addEventListener('click',()=>{const u=UPGRADES.find(x=>x.id===b.dataset.id);if(S.cash<u.cost)return;S.cash-=u.cost;S.up[u.id]=true;save();$('cash').textContent=money(S.cash);ding(5);showShop()}));
+  $('backBtn').textContent=showShop.midJob?'Back to the job':'Back to the customer';
+  $('backBtn').addEventListener('click',()=>{if(showShop.midJob){$('overlay').hidden=true;$('overlay').classList.remove('title');return}showArrival()});
+  $('overlay').classList.remove('title');$('overlay').hidden=false}
+$('startBtn').addEventListener('click',()=>{audio();showArrival()});
+// ---------- dealership mode: Dealership Tycoon opens this page in a frame and sends one job
+// (a car its salesperson just sold with the tint package). Nothing here touches the tint-shop save.
+let DEALER=null;
+const DEALER_CARS={sedan:['assets/car-silver.png','assets/car-red.png','assets/car-black.png','assets/car-white.png','assets/car-blue.png'],
+  suv:['assets/exotic-purple-suv.png'],ev:['assets/exotic-black-hypercar.png'],sport:['assets/exotic-lime-supercar.png','assets/exotic-orange-gt.png']};
+window.addEventListener('message',e=>{const d=e.data;if(!d||d.type!=='tintJob')return;
+  DEALER=d;document.body.classList.add('dealer');
+  const imgs=DEALER_CARS[d.carType]||DEALER_CARS.sedan,img=imgs[Math.floor(Math.random()*imgs.length)];
+  const sh=SHADES[Math.floor(Math.random()*4)];
+  const c={name:d.buyer||'Your buyer',car:d.carName||'new car',shade:sh.l,vlt:sh.v,img,tinted:img.replace('.png','-tinted.png'),
+    pay:d.pay||1400,ask:'Just bought it. Make the windows look right.',exotic:d.carType==='sport'};
+  S={cash:0,jobs:0,up:{},earned:0,ratings:[]};S.nextWin='front';
+  $('jobLabel').textContent='Dealership job';$('overlay').classList.remove('title');audio();showRack(c)});
+function dealerFinish(stars,pay,tip,say){$('meter').hidden=true;ding(stars);
+  const total=pay+tip;parent.postMessage({type:'tintDone',stars,pay:total,full:DEALER.pay},'*');
+  $('panel').innerHTML='<div class="eyebrow">'+cust.name+' says</div><div class="stars">'+'★'.repeat(stars)+'<span style="color:#3a414b">'+'★'.repeat(5-stars)+'</span></div>'
+    +'<p style="color:var(--fg);font-size:17px">“'+say+'”</p><div class="pay">'+money(total)+' <small>of '+money(DEALER.pay)+' tint package</small></div>'
+    +'<div class="row"><button id="nextBtn">Back to the showroom</button></div>';
+  $('nextBtn').addEventListener('click',()=>parent.postMessage({type:'tintClose'},'*'));
+  $('overlay').classList.add('side');setTimeout(()=>{$('overlay').hidden=false},1500);msg('');actions([])}
+if(parent!==window)try{parent.postMessage({type:'tintReady'},'*')}catch(e){}
+$('cashCard').addEventListener('click',()=>showShop());$('cashCard').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')showShop()});
+// preload the car pictures so the arrival card shows instantly
+CUSTOMERS.forEach(c=>{c.tinted=c.img.replace('.png','-tinted.png');[c.img,c.tinted].forEach(u=>{const i=new Image();i.src=u})});
+window.__dbg={corners(){if(doorShown()){const r=doorCv.getBoundingClientRect();return [[DBX,DBY+DBH],[DBX+DBW,DBY+DBH],[DBX+DBW,DBY],[DBX,DBY]].map(([x,y])=>[r.left+DL.ox+x*DL.sc,r.top+DL.oy+y*DL.sc])}const r=canvas.getBoundingClientRect();return WIN.map(([x,y])=>[x-WX,y-WY]).map(([x,y])=>{const v=new THREE.Vector3(x,y,0);film.localToWorld(v);v.project(camera);return [(v.x+1)/2*r.width+r.left,(1-v.y)/2*r.height+r.top]})},bubbles:()=>bubbles.length,fingers(){const r=doorCv.getBoundingClientRect();return fingers.filter(f=>!f.done&&!f.burnt).map(f=>[r.left+DL.ox+(DBX+f.x/CW*DBW)*DL.sc,r.top+DL.oy+(DBY+f.y/CH*DBH)*DL.sc])},burns:()=>burns,win:()=>JW.key,time(n){const t=performance.now();for(let i=0;i<n;i++)draw();return (performance.now()-t)/n},timeDoor(n){const t=performance.now();for(let i=0;i<n;i++)renderDoor();return (performance.now()-t)/n},setPhase(p){phase=p;if(p==="squeegee"&&!bubbles.length)bubbles=scatter(14,9,9)},lay(){startLay()},finish(){finish()},dirt:()=>dirt.length,phase:()=>phase};
+})();
+</script>
+
+</body>
+</html>

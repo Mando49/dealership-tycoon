@@ -104,6 +104,10 @@ svg.scene{width:100%;height:100%;max-height:100%;display:block;border-radius:10p
   .card{padding:5px 8px;min-width:112px}.card .p{font-size:15px}
 }
 @media (prefers-reduced-motion:reduce){.modal{backdrop-filter:none}}
+#tintBay{position:fixed;inset:0;z-index:50;background:#0b0c0e;display:flex;flex-direction:column}
+#tintBay iframe{flex:1;width:100%;border:0;background:#0b0c0e}
+#tintBay .bar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px max(12px,env(safe-area-inset-left,0px)) 8px max(12px,env(safe-area-inset-left,0px));padding-top:max(8px,env(safe-area-inset-top,0px));background:#15181e;color:#fff;font-size:13px}
+#tintBay .bar b{font-family:var(--display);letter-spacing:.06em;text-transform:uppercase}
 </style>
 
 <div class="app">
@@ -115,7 +119,7 @@ svg.scene{width:100%;height:100%;max-height:100%;display:block;border-radius:10p
     <div class="stat lvlstat"><small>Level</small><span id="pace">1</span></div>
     <div class="team" id="team" aria-label="Your team"></div>
     <div class="stat clock"><small id="dayLbl">Day 1</small><div class="bar"><i id="timeBar"></i></div></div>
-    <div class="hudbtns"><button class="btn" id="buyBtn">Buy cars</button><button class="btn" id="pauseBtn">Pause</button><button class="btn" id="restartBtn">Restart</button></div>
+    <div class="hudbtns"><button class="btn" id="buyBtn">Buy cars</button><button class="btn" id="pauseBtn">Pause</button><button class="btn" id="tintJobsBtn" hidden>Tint jobs</button><button class="btn" id="restartBtn">Restart</button></div>
   </div>
 
   <div class="stage">
@@ -425,7 +429,11 @@ function sell(p,i,by,price){
   p.happy=true;p.state='leave';p.slot=-1;goTo(p,DOOR[0],DOOR[1]);p.ring.setAttribute('opacity',0);
   if(wasSel){sel=null;if(player)goTo(player,HOME[0],HOME[1]);
     const P=$('panel');P.innerHTML=`<h3>Sold the ${M.name}!</h3><div class="row"><p>Offer the Tint &amp; PPF package? About ${fmt(filmValue())}.</p><button class="btn red" id="tintYes">Offer tint &amp; PPF</button><button class="btn" id="tintNo">Skip</button></div>`;
-    $('tintYes').onclick=()=>{if(Math.random()<filmChance()){S.cash+=filmValue();dayStats.rev+=filmValue();dayStats.film++;pop(p.x,p.y-hOf(p.y)-100,'+'+fmt(filmValue())+' TINT & PPF','#e9b949');sfx('sale')}else say(p,'Maybe next time.','#c3cad5');hud();panelIdle()};
+    $('tintYes').onclick=()=>{if(Math.random()<filmChance()){const job={buyer:'Buyer #'+((S.deals||0)),carName:M.name,carType:M.type,pay:filmValue()};sfx('sale');
+        $('panel').innerHTML=`<h3>They said yes to tint!</h3><div class="row"><p>${M.name} · ${fmt(job.pay)} tint &amp; PPF job. Do it now or keep selling?</p><button class="btn red" id="tintNow">Do the job now</button><button class="btn" id="tintLater">Keep selling</button></div>`;
+        $('tintNow').onclick=()=>{panelIdle();openTintJob(job)};
+        $('tintLater').onclick=()=>{S.tintJobs=(S.tintJobs||[]).concat([job]);save();tintJobsHud();pop(p.x,p.y-hOf(p.y)-100,'Tint job waiting','#e9b949');panelIdle()}}
+      else{say(p,'Maybe next time.','#c3cad5');hud();panelIdle()}};
     $('tintNo').onclick=panelIdle;
   }else if(by){pop(p.x,p.y-hOf(p.y)-100,staffById(by.id).name+' closed it','#cfe0ff');
     if(Math.random()<filmChance()*.7){S.cash+=filmValue();dayStats.rev+=filmValue();dayStats.film++;pop(p.x,p.y-hOf(p.y)-140,'+'+fmt(filmValue())+' TINT','#e9b949')}}
@@ -599,6 +607,27 @@ function fit(){const r=stageEl.clientWidth/Math.max(1,stageEl.clientHeight);scen
 addEventListener('resize',fit);addEventListener('orientationchange',()=>setTimeout(fit,200));fit();
 $('buyBtn').onclick=openBuy;
 $('pauseBtn').onclick=()=>togglePause();
+// ---- tint jobs: the showroom pauses while you tint the car in the tint game (tint/ folder, a copy of tint-shop-sim)
+let tintJob=null,tintWasPaused=false;
+function tintJobsHud(){const n=(S.tintJobs||[]).length,b=$('tintJobsBtn');b.hidden=!n;b.textContent='Tint jobs ('+n+')'}
+function openTintJob(job,wasP){tintJob=job;tintWasPaused=wasP!=null?wasP:paused;togglePause(true);
+  const bay=document.createElement('div');bay.id='tintBay';
+  bay.innerHTML='<div class="bar"><b>Tint bay · '+job.carName+'</b><span>Showroom paused</span><button class="btn" id="tintLeave">Back to showroom</button></div><iframe src="tint/index.html" title="Tint job" allow="autoplay"></iframe>';
+  document.body.appendChild(bay);
+  $('tintLeave').onclick=()=>closeTintJob(false)}
+function closeTintJob(done){const bay=$('tintBay');if(bay)bay.remove();
+  if(!done&&tintJob){S.tintJobs=(S.tintJobs||[]).concat([tintJob]);save()}   // left early: job goes back on the list
+  tintJob=null;tintJobsHud();hud();if(!tintWasPaused)togglePause(false)}
+window.addEventListener('message',e=>{const d=e.data,bay=$('tintBay');if(!d||!bay)return;const fr=bay.querySelector('iframe');if(e.source!==fr.contentWindow)return;
+  if(d.type==='tintReady'&&tintJob)fr.contentWindow.postMessage(Object.assign({type:'tintJob'},tintJob),'*');
+  if(d.type==='tintDone'&&tintJob){S.cash+=d.pay;if(dayStats){dayStats.rev+=d.pay;dayStats.film++}rate(d.stars>=4?.04:d.stars<=2?-.05:0);save();hud();tintJob.done=true}
+  if(d.type==='tintClose')closeTintJob(!!(tintJob&&tintJob.done))});
+$('tintJobsBtn').onclick=()=>{const L=S.tintJobs||[];if(!L.length)return;const wasP=paused;togglePause(true);
+  $('panel').classList.remove('idle');$('panel').innerHTML='<h3>Tint jobs waiting</h3><div class="row">'+L.map((j,i)=>`<button class="btn red" data-i="${i}">${j.carName} · ${fmt(j.pay)}</button>`).join('')+'<button class="btn" id="tintJobsClose">Later</button></div>';
+  $('panel').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{const j=S.tintJobs.splice(+b.dataset.i,1)[0];save();panelIdle();openTintJob(j,wasP)});
+  $('tintJobsClose').onclick=()=>{panelIdle();if(!wasP)togglePause(false)}};
+tintJobsHud();
+window.__dt={state:()=>({mode,paused,cash:S.cash,jobs:(S.tintJobs||[]).length}),startDay:()=>startDay(),queue:j=>{S.tintJobs=(S.tintJobs||[]).concat([j]);tintJobsHud()},open:j=>openTintJob(j)};
 $('restartBtn').onclick=askRestart;
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='day')togglePause(true)});
 showIntro();requestAnimationFrame(tick);

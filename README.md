@@ -15,6 +15,6 @@ Vela Motors and its models are fictional.
 
 ## Tint jobs
 
-When a buyer says yes to the tint & PPF package, choose **Do the job now** (the showroom pauses and the car opens in the tint bay) or **Keep selling** (the job waits in **Tint jobs**), or **Send to tint shop** (paid right away, half the package). Better tint work pays more of the package. In the Tint jobs list you can send all waiting jobs out at once, or turn on **Always send** to just sell cars.
+When a buyer says yes to the tint & PPF package, choose **Do the job now** (the showroom pauses and the car opens in the tint bay) or **Keep selling** (the job waits in **Tint jobs**), or **Send to tint shop** (paid right away, half the package). Doing jobs yourself needs the **Tint & PPF studio** upgrade; before that, every tint sale is sent out. Better tint work pays more of the package. In the Tint jobs list you can send all waiting jobs out at once, or turn on **Always send** to just sell cars.
 
 The `tint/` folder is a copy of the [tint-shop-sim](https://github.com/Mando49/tint-shop-sim) game. Update it by copying `index.html` and `assets/` from that repo.

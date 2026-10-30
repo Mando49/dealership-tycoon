@@ -197,7 +197,7 @@ const SKILLS=[
 const UPGRADES=[
   {id:'chairs', name:'More lounge chairs', desc:'Seat more service customers.', base:8000, max:3},
   {id:'coffee', name:'Espresso bar',       desc:'Waiting customers stay patient longer.', base:12000, max:2},
-  {id:'film',   name:'Tint & PPF studio',  desc:'More buyers say yes to tint and paint protection, and it pays more.', base:15000, max:3},
+  {id:'film',   name:'Tint & PPF studio',  desc:'Do tint jobs yourself instead of sending them out at half pay. More buyers say yes, and it pays more.', base:15000, max:3},
   {id:'lot',    name:'Bigger lot',         desc:'Stock 2 more cars.', base:20000, max:3},
   {id:'sales',  name:'Hire a salesperson', desc:'Works the floor on their own and brings their perk.', base:25000, max:1},
   {id:'ads',    name:'Billboard on the Strip', desc:'More customers walk in.', base:18000, max:3},
@@ -430,7 +430,7 @@ function sell(p,i,by,price){
   if(wasSel){sel=null;if(player)goTo(player,HOME[0],HOME[1]);
     const P=$('panel');P.innerHTML=`<h3>Sold the ${M.name}!</h3><div class="row"><p>Offer the Tint &amp; PPF package? About ${fmt(filmValue())}.</p><button class="btn red" id="tintYes">Offer tint &amp; PPF</button><button class="btn" id="tintNo">Skip</button></div>`;
     $('tintYes').onclick=()=>{if(Math.random()<filmChance()){const job={buyer:'Buyer #'+((S.deals||0)),carName:M.name,carType:M.type,pay:filmValue()};sfx('sale');
-        if(S.autoTint){sendOut([job],p);panelIdle();return}
+        if(S.autoTint||S.lv.film<1){sendOut([job],p);if(S.lv.film<1)say(p,'Sent out. Build the Tint & PPF studio to do it yourself.','#e9b949');panelIdle();return}
         $('panel').innerHTML=`<h3>They said yes to tint!</h3><div class="row"><p>${M.name} · ${fmt(job.pay)} tint &amp; PPF job.</p><button class="btn red" id="tintNow">Do the job now</button><button class="btn" id="tintLater">Keep selling</button><button class="btn" id="tintOut">Send to tint shop · ${fmt(outPay(job))}</button></div>`;
         $('tintOut').onclick=()=>{sendOut([job],p);panelIdle()};
         $('tintNow').onclick=()=>{panelIdle();openTintJob(job)};
@@ -620,24 +620,27 @@ function openTintJob(job,wasP){tintJob=job;tintWasPaused=wasP!=null?wasP:paused;
   const bay=document.createElement('div');bay.id='tintBay';
   bay.innerHTML='<div class="bar"><b>Tint bay · '+job.carName+'</b><span>Showroom paused</span><button class="btn" id="tintLeave">Back to showroom</button></div><iframe src="tint/index.html" title="Tint job" allow="autoplay"></iframe>';
   document.body.appendChild(bay);
-  $('tintLeave').onclick=()=>closeTintJob(false)}
+  $('tintLeave').onclick=()=>closeTintJob(!!(tintJob&&tintJob.done))}
 function closeTintJob(done){const bay=$('tintBay');if(bay)bay.remove();
   if(!done&&tintJob){S.tintJobs=(S.tintJobs||[]).concat([tintJob]);save()}   // left early: job goes back on the list
   tintJob=null;tintJobsHud();hud();if(!tintWasPaused)togglePause(false)}
-window.addEventListener('message',e=>{const d=e.data,bay=$('tintBay');if(!d||!bay)return;const fr=bay.querySelector('iframe');if(e.source!==fr.contentWindow)return;
+function tintMsg(d){const bay=$('tintBay');if(!d||!bay)return;const fr=bay.querySelector('iframe');
   if(d.type==='tintReady'&&tintJob)fr.contentWindow.postMessage(Object.assign({type:'tintJob'},tintJob),'*');
-  if(d.type==='tintDone'&&tintJob){S.cash+=d.pay;if(dayStats){dayStats.rev+=d.pay;dayStats.film++}rate(d.stars>=4?.04:d.stars<=2?-.05:0);save();hud();tintJob.done=true}
-  if(d.type==='tintClose')closeTintJob(!!(tintJob&&tintJob.done))});
+  if(d.type==='tintDone'&&tintJob&&!tintJob.done){S.cash+=d.pay;if(dayStats){dayStats.rev+=d.pay;dayStats.film++}rate(d.stars>=4?.04:d.stars<=2?-.05:0);save();hud();tintJob.done=true}
+  if(d.type==='tintDone'){const b=$('tintLeave');if(b){b.textContent='Done · back to showroom';b.classList.add('red')}}
+  if(d.type==='tintClose')closeTintJob(!!(tintJob&&tintJob.done))}
+window.__tintMsg=d=>setTimeout(()=>tintMsg(d),0);
+window.addEventListener('message',e=>{const bay=$('tintBay');if(!bay||e.source!==bay.querySelector('iframe').contentWindow)return;tintMsg(e.data)});
 $('tintJobsBtn').onclick=()=>{const L=S.tintJobs||[];const wasP=paused;togglePause(true);
   const outTot=L.reduce((a,j)=>a+outPay(j),0);
-  $('panel').classList.remove('idle');$('panel').innerHTML='<h3>Tint jobs waiting</h3><div class="row">'+L.map((j,i)=>`<button class="btn red" data-i="${i}">${j.carName} · ${fmt(j.pay)}</button>`).join('')
+  $('panel').classList.remove('idle');$('panel').innerHTML='<h3>Tint jobs waiting</h3><div class="row">'+(S.lv.film<1?'<p>Build the Tint &amp; PPF studio (Upgrades) to do these yourself.</p>':L.map((j,i)=>`<button class="btn red" data-i="${i}">${j.carName} · ${fmt(j.pay)}</button>`).join(''))
     +`<button class="btn" id="tintAllOut">Send all to tint shop · ${fmt(outTot)}</button><button class="btn" id="tintAuto">${S.autoTint?'Always send: ON':'Always send: OFF'}</button><button class="btn" id="tintJobsClose">Later</button></div>`;
   $('tintAllOut').onclick=()=>{sendOut(S.tintJobs);S.tintJobs=[];save();tintJobsHud();panelIdle();if(!wasP)togglePause(false)};
   $('tintAuto').onclick=()=>{S.autoTint=!S.autoTint;save();$('tintAuto').textContent=S.autoTint?'Always send: ON':'Always send: OFF'};
   $('panel').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{const j=S.tintJobs.splice(+b.dataset.i,1)[0];save();panelIdle();openTintJob(j,wasP)});
   $('tintJobsClose').onclick=()=>{panelIdle();if(!wasP)togglePause(false)}};
 tintJobsHud();
-window.__dt={state:()=>({mode,paused,cash:S.cash,jobs:(S.tintJobs||[]).length}),startDay:()=>startDay(),queue:j=>{S.tintJobs=(S.tintJobs||[]).concat([j]);tintJobsHud()},open:j=>openTintJob(j)};
+window.__dt={state:()=>({mode,paused,cash:S.cash,jobs:(S.tintJobs||[]).length}),startDay:()=>startDay(),setFilm:n=>{S.lv.film=n},queue:j=>{S.tintJobs=(S.tintJobs||[]).concat([j]);tintJobsHud()},open:j=>openTintJob(j)};
 $('restartBtn').onclick=askRestart;
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='day')togglePause(true)});
 showIntro();requestAnimationFrame(tick);

@@ -723,13 +723,15 @@ window.addEventListener('message',e=>{const d=e.data;if(!d||d.type!=='tintJob')r
   S={cash:0,jobs:0,up:{},earned:0,ratings:[]};S.nextWin='front';
   $('jobLabel').textContent='Dealership job';$('overlay').classList.remove('title');audio();showRack(c)});
 function dealerFinish(stars,pay,tip,say){$('meter').hidden=true;ding(stars);
-  const total=pay+tip;parent.postMessage({type:'tintDone',stars,pay:total,full:DEALER.pay},'*');
+  const total=pay+tip;toDealer({type:'tintDone',stars,pay:total,full:DEALER.pay});
   $('panel').innerHTML='<div class="eyebrow">'+cust.name+' says</div><div class="stars">'+'★'.repeat(stars)+'<span style="color:#3a414b">'+'★'.repeat(5-stars)+'</span></div>'
     +'<p style="color:var(--fg);font-size:17px">“'+say+'”</p><div class="pay">'+money(total)+' <small>of '+money(DEALER.pay)+' tint package</small></div>'
     +'<div class="row"><button id="nextBtn">Back to the showroom</button></div>';
-  $('nextBtn').addEventListener('click',()=>parent.postMessage({type:'tintClose'},'*'));
+  $('nextBtn').addEventListener('click',()=>toDealer({type:'tintClose'}));$('nextBtn').addEventListener('touchend',e=>{e.preventDefault();toDealer({type:'tintClose'})});
   $('overlay').classList.add('side');setTimeout(()=>{$('overlay').hidden=false},1500);msg('');actions([])}
-if(parent!==window)try{parent.postMessage({type:'tintReady'},'*')}catch(e){}
+// talk to the dealership: call it directly when allowed (same site), otherwise post a message
+function toDealer(m){let ok=false;try{if(parent.__tintMsg){parent.__tintMsg(m);ok=true}}catch(e){}if(!ok)try{parent.postMessage(m,'*')}catch(e){}}
+if(parent!==window)toDealer({type:'tintReady'});
 $('cashCard').addEventListener('click',()=>showShop());$('cashCard').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')showShop()});
 // preload the car pictures so the arrival card shows instantly
 CUSTOMERS.forEach(c=>{c.tinted=c.img.replace('.png','-tinted.png');[c.img,c.tinted].forEach(u=>{const i=new Image();i.src=u})});

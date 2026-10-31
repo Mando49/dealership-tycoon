@@ -50,7 +50,7 @@ button{pointer-events:auto;font-family:var(--display);font-weight:800;font-size:
 button:active{transform:translateY(2px);box-shadow:0 2px 0 #a84a0a}
 button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line);box-shadow:none}
-#reveal{position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,7,9,.25),rgba(6,7,9,.6)),url(assets/shop.jpg) center 35%/cover;overflow:hidden}
+#reveal{position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,7,9,.25),rgba(6,7,9,.6)),var(--shop,url(assets/shop.jpg)) center 35%/cover;overflow:hidden}
 #reveal .stage{position:absolute;left:3%;bottom:9%;width:min(52vw,720px);transform:translateX(-120%);transition:transform 1.1s cubic-bezier(.2,.8,.2,1)}
 #reveal.in .stage{transform:none}
 #reveal .stage img{display:block;width:100%;height:auto}
@@ -62,7 +62,7 @@ button.ghost{background:transparent;color:var(--fg);border:1px solid var(--line)
 body.revealing #tray,body.revealing #bottom{display:none}
 #overlay.side{background:transparent;justify-content:flex-end;padding-right:max(3vw,env(safe-area-inset-right,0px))}
 #overlay.side .card{max-width:min(360px,42vw)}
-@media (max-aspect-ratio:1/1){#reveal{background:linear-gradient(180deg,rgba(6,7,9,.2),rgba(6,7,9,.55)),url(assets/shop.jpg) center top/auto 60% no-repeat,#5b5e63}#reveal .stage{left:4%;width:92%;top:auto;bottom:calc(min(46vh,430px) + 10px)}#overlay.side{justify-content:center;align-items:flex-end;padding-bottom:4vh}#overlay.side .card{max-width:360px}}
+@media (max-aspect-ratio:1/1){#reveal{background:linear-gradient(180deg,rgba(6,7,9,.2),rgba(6,7,9,.55)),var(--shop,url(assets/shop.jpg)) center top/auto 60% no-repeat,#5b5e63}#reveal .stage{left:4%;width:92%;top:auto;bottom:calc(min(46vh,430px) + 10px)}#overlay.side{justify-content:center;align-items:flex-end;padding-bottom:4vh}#overlay.side .card{max-width:360px}}
 @media (prefers-reduced-motion:reduce){#reveal .stage{transition:none}#reveal.in .shine{animation:none}}
 #overlay.title{background:linear-gradient(90deg,rgba(8,9,11,.88) 0%,rgba(8,9,11,.55) 45%,rgba(8,9,11,.05) 80%),url(assets/title.jpg) center/cover;justify-content:flex-start;align-items:flex-end;padding-left:max(4vw,env(safe-area-inset-left,0px));padding-bottom:max(3vh,env(safe-area-inset-bottom,0px))}
 @media (max-height:430px){.carpic{max-width:180px!important}#overlay .card{padding:12px 18px;gap:7px}#overlay .stars{font-size:26px}#overlay .pay{font-size:28px}h1{font-size:36px}}
@@ -179,7 +179,9 @@ const UPGRADES=[
   {id:'air',name:'Dust-free bay',desc:'Air filters in the bay. Less dirt on the glass to scrape.',cost:500},
   {id:'lounge',name:'Customer lounge',desc:'Coffee and a couch. Happy customers tip $15 more on 4★ and 5★ windows.',cost:600},
   {id:'apprentice',name:'Hire an apprentice',desc:'Does the microfiber wipe-down for you after every squeegee.',cost:1200},
-  {id:'ceramic',name:'Ceramic film line',desc:'Sell premium ceramic film. Customers pay 25% more.',cost:1500}];
+  {id:'ceramic',name:'Ceramic film line',desc:'Sell premium ceramic film. Customers pay 25% more.',cost:1500},
+  {id:'shop2',name:'Shop remodel: Level 2',desc:'Epoxy floor and LED light tunnel. Customers pay 10% more.',cost:2000,img:'assets/shop-2.jpg'},
+  {id:'shop3',name:'Luxury studio: Level 3',desc:'Black and gold studio with a lounge. Exotic owners come in more often.',cost:6000,img:'assets/shop-3.jpg',needs:'shop2'}];
 const has=id=>!!S.up[id];
 const dryTime=()=>DRY_TIME+(has('slip')?35:0);
 // film rack: shade → light let through
@@ -224,6 +226,10 @@ const shopTex=texLoader.load('assets/shop.jpg');shopTex.encoding=THREE.sRGBEncod
 const BH=14,BW=BH*1344/752;
 const backdrop=new THREE.Mesh(new THREE.PlaneGeometry(BW,BH),new THREE.MeshBasicMaterial({map:shopTex,fog:false}));
 backdrop.position.set(-4.5,BH*(0.5-0.62),-6.5);scene.add(backdrop);
+// remodels swap the shop picture (the reveal background and the 3D backdrop)
+const shopPic=()=>has('shop3')?'assets/shop-3.jpg':has('shop2')?'assets/shop-2.jpg':'assets/shop.jpg';
+function applyShop(){const u=DEALER?'assets/shop.jpg':shopPic();document.body.style.setProperty('--shop','url('+u+')');
+  if(u!=='assets/shop.jpg')texLoader.load(u,t=>{t.encoding=THREE.sRGBEncoding;backdrop.material.map=t;backdrop.material.needsUpdate=true})}
 
 // car: a 3D model made in Higgsfield (image → Tripo), with a simple box car as the fallback while it loads
 const car=new THREE.Group();scene.add(car);
@@ -414,7 +420,9 @@ function showRating(){$('rating').textContent='★ '+shopRating().toFixed(1)+' s
 let edgePts=[],gaps=[],cutNickT=0,lastInsideOff=false;
 function setWindow(w){JW=w;DOOR=w;measure();POLY=DOOR.poly.map(p=>[(p[0]-DBX)/DBW*CW,(p[1]-DBY)/DBH*CH]);
   [fc,mk,wm,rm,smc].forEach(c=>{c.width=CW;c.height=CH});
-  if(doorImg.src.indexOf(w.src)<0){doorImg.src=w.src}}
+  const src=trimSrc(w.src);if(doorImg.src.indexOf(src)<0){doorImg.src=src}}
+const TRIMS=['','tan','red','cream'];
+const trimSrc=s=>{const t=DEALER?DEALER.trim:S.carTrim;return t?s.replace('.jpg','-'+t+'.jpg'):s};
 function buildEdge(){edgePts=[];for(let i=0;i<POLY.length;i++){const [x1,y1]=POLY[i],[x2,y2]=POLY[(i+1)%POLY.length],n=Math.max(2,Math.round(Math.hypot(x2-x1,y2-y1)/8));
   for(let k=0;k<n;k++)edgePts.push({x:x1+(x2-x1)*k/n,y:y1+(y2-y1)*k/n,cut:false,e:i})}}
 function edgeDist(x,y){let best=1e9;for(let i=0;i<POLY.length;i++){const [x1,y1]=POLY[i],[x2,y2]=POLY[(i+1)%POLY.length],dx=x2-x1,dy=y2-y1;
@@ -557,6 +565,7 @@ function finish(){
   let pay=Math.round(base*stars/5/5)*5, tip=0;
   if(stars===5)tip=cust.exotic?Math.round(base*0.25/5)*5:(secs<75?20:0);
   if(has('sign')){pay=Math.round(pay*1.2/5)*5;tip=Math.round(tip*1.2/5)*5}
+  if(has('shop2')){pay=Math.round(pay*1.1/5)*5}
   if(has('ceramic')){pay=Math.round(pay*1.25/5)*5;tip=Math.round(tip*1.25/5)*5}
   if(has('lounge')&&stars>=4&&!DEALER)tip+=15;
   if(wrongShade){pay=Math.round(pay/2/5)*5;tip=0}
@@ -713,8 +722,8 @@ function rateNote(){if(S.jobs<2)return '';return exoticsOK()?'':'Exotic owners o
 // a car gets every window you've unlocked, in order: front door, rear door, back glass
 const winOrder=()=>unlocked().map(w=>w.key);
 function pickNext(forceWin){const reg=CUSTOMERS.map((c,i)=>i).filter(i=>!CUSTOMERS[i].exotic),ex=CUSTOMERS.map((c,i)=>i).filter(i=>CUSTOMERS[i].exotic);
-  S.nextCust=(exoticsOK()&&Math.random()<0.4)?ex[Math.floor(Math.random()*ex.length)]:reg[(S.reg=(typeof S.reg==='number'?S.reg+1:0))%reg.length];
-  S.carPlan=winOrder();S.nextWin=S.carPlan[0];S.carPay=0;S.carStars=[]}
+  S.nextCust=(exoticsOK()&&Math.random()<(has('shop3')?0.6:0.4))?ex[Math.floor(Math.random()*ex.length)]:reg[(S.reg=(typeof S.reg==='number'?S.reg+1:0))%reg.length];
+  S.carPlan=winOrder();S.nextWin=S.carPlan[0];S.carPay=0;S.carStars=[];S.carTrim=TRIMS[Math.floor(Math.random()*TRIMS.length)]}
 if(typeof S.nextCust!=='number'||!Array.isArray(S.carPlan)||!S.carPlan.length)pickNext();
 function showArrival(){const c=CUSTOMERS[S.nextCust]||CUSTOMERS[0];const plan=(S.carPlan||['front']).map(k=>WINDOWS[k]);$('overlay').classList.remove('title','side');$('reveal').hidden=true;document.body.classList.remove('revealing');
   $('panel').innerHTML='<div class="eyebrow">Customer pulling in</div><img class="carpic" src="'+c.img+'" alt="'+c.name+'\'s '+c.car+'">'
@@ -731,9 +740,9 @@ function showRack(c){jobCust=c;const shownAt=performance.now();
     $('overlay').hidden=true;newJob();if(wrongShade)msg('Hmm, '+f.l+' film. Was that the right roll?')}))}
 function showShop(){if(!$('overlay').hidden&&!$('panel').querySelector('.ups'))showShop.back=$('panel').innerHTML;if(!$('panel').querySelector('.ups'))showShop.midJob=$('overlay').hidden&&phase!=='idle'&&phase!=='inspect';
   $('panel').innerHTML='<div class="eyebrow">Shop upgrades</div><div class="big">Cash: '+money(S.cash)+'</div><div class="ups">'
-    +UPGRADES.map(u=>'<div class="up">'+(u.img?'<img src="'+u.img+'" alt="" style="width:40px;height:40px;object-fit:contain;flex:none">':'')+'<div style="flex:1"><b>'+u.name+'</b><span>'+u.desc+'</span></div>'+(has(u.id)?'<em>Owned</em>':'<button data-id="'+u.id+'"'+(S.cash<u.cost?' disabled':'')+'>'+money(u.cost)+'</button>')+'</div>').join('')
+    +UPGRADES.map(u=>'<div class="up">'+(u.img?'<img src="'+u.img+'" alt="" style="width:40px;height:40px;object-fit:contain;flex:none">':'')+'<div style="flex:1"><b>'+u.name+'</b><span>'+u.desc+'</span></div>'+(has(u.id)?'<em>Owned</em>':u.needs&&!has(u.needs)?'<em>Needs Level 2</em>':'<button data-id="'+u.id+'"'+(S.cash<u.cost?' disabled':'')+'>'+money(u.cost)+'</button>')+'</div>').join('')
     +'</div><div class="row"><button id="backBtn" class="ghost">Back to the customer</button></div>';
-  $('panel').querySelectorAll('.up button').forEach(b=>b.addEventListener('click',()=>{const u=UPGRADES.find(x=>x.id===b.dataset.id);if(S.cash<u.cost)return;S.cash-=u.cost;S.up[u.id]=true;save();$('cash').textContent=money(S.cash);ding(5);showShop()}));
+  $('panel').querySelectorAll('.up button').forEach(b=>b.addEventListener('click',()=>{const u=UPGRADES.find(x=>x.id===b.dataset.id);if(S.cash<u.cost)return;S.cash-=u.cost;S.up[u.id]=true;save();if(u.id.startsWith('shop'))applyShop();$('cash').textContent=money(S.cash);ding(5);showShop()}));
   $('backBtn').textContent=showShop.midJob?'Back to the job':'Back to the customer';
   $('backBtn').addEventListener('click',()=>{if(showShop.midJob){$('overlay').hidden=true;$('overlay').classList.remove('title');return}showArrival()});
   $('overlay').classList.remove('title');$('overlay').hidden=false}
@@ -751,7 +760,8 @@ window.addEventListener('message',e=>{const d=e.data;if(!d||d.type!=='tintJob')r
   const sh=SHADES[Math.floor(Math.random()*4)];
   const c={name:d.buyer||'Your buyer',car:d.carName||'new car',shade:sh.l,vlt:sh.v,img,tinted:img.replace('.png','-tinted.png'),
     pay:(d.pay||1400)/3.9,ask:'Just bought it. Make the windows look right.',exotic:d.carType==='sport'||['tempesta','furia'].includes(d.model)};
-  S={cash:0,jobs:0,up:{},earned:0,ratings:[]};S.nextWin='front';DEALER.plan=['front','rear','back'];DEALER.stars=[];DEALER.got=0;
+  S={cash:0,jobs:0,up:{},earned:0,ratings:[]};S.nextWin='front';applyShop();DEALER.plan=['front','rear','back'];DEALER.stars=[];DEALER.got=0;
+  DEALER.trim={corsa:'',strada:'tan',terra:'cream',grande:'tan',volta:'',saetta:'red',tempesta:'cream',furia:'red'}[d.model]||'';
   $('jobLabel').textContent='Dealership job';$('overlay').classList.remove('title');audio();showRack(c)});
 function dealerFinish(stars,pay,tip,say){$('meter').hidden=true;ding(stars);
   const total=pay+tip;toDealer({type:'tintDone',stars,pay:total,full:DEALER.pay});
@@ -764,6 +774,7 @@ function dealerFinish(stars,pay,tip,say){$('meter').hidden=true;ding(stars);
 function toDealer(m){let ok=false;try{if(parent.__tintMsg){parent.__tintMsg(m);ok=true}}catch(e){}if(!ok)try{parent.postMessage(m,'*')}catch(e){}}
 if(parent!==window)toDealer({type:'tintReady'});
 $('cashCard').addEventListener('click',()=>showShop());$('cashCard').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')showShop()});
+applyShop();
 // preload the car pictures so the arrival card shows instantly
 CUSTOMERS.forEach(c=>{c.tinted=c.img.replace('.png','-tinted.png');[c.img,c.tinted].forEach(u=>{const i=new Image();i.src=u})});
 window.__dbg={corners(){if(doorShown()){const r=doorCv.getBoundingClientRect();return [[DBX,DBY+DBH],[DBX+DBW,DBY+DBH],[DBX+DBW,DBY],[DBX,DBY]].map(([x,y])=>[r.left+DL.ox+x*DL.sc,r.top+DL.oy+y*DL.sc])}const r=canvas.getBoundingClientRect();return WIN.map(([x,y])=>[x-WX,y-WY]).map(([x,y])=>{const v=new THREE.Vector3(x,y,0);film.localToWorld(v);v.project(camera);return [(v.x+1)/2*r.width+r.left,(1-v.y)/2*r.height+r.top]})},bubbles:()=>bubbles.length,fingers(){const r=doorCv.getBoundingClientRect();return fingers.filter(f=>!f.done&&!f.burnt).map(f=>[r.left+DL.ox+(DBX+f.x/CW*DBW)*DL.sc,r.top+DL.oy+(DBY+f.y/CH*DBH)*DL.sc])},burns:()=>burns,win:()=>JW.key,time(n){const t=performance.now();for(let i=0;i<n;i++)draw();return (performance.now()-t)/n},timeDoor(n){const t=performance.now();for(let i=0;i<n;i++)renderDoor();return (performance.now()-t)/n},setPhase(p){phase=p;if(p==="squeegee"&&!bubbles.length)bubbles=scatter(14,9,9)},lay(){startLay()},finish(){finish()},dirt:()=>dirt.length,phase:()=>phase};

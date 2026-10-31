@@ -66,6 +66,7 @@ body.revealing #tray,body.revealing #bottom{display:none}
 @media (prefers-reduced-motion:reduce){#reveal .stage{transition:none}#reveal.in .shine{animation:none}}
 #overlay.title{background:linear-gradient(90deg,rgba(8,9,11,.88) 0%,rgba(8,9,11,.55) 45%,rgba(8,9,11,.05) 80%),url(assets/title.jpg) center/cover;justify-content:flex-start;align-items:flex-end;padding-left:max(4vw,env(safe-area-inset-left,0px));padding-bottom:max(3vh,env(safe-area-inset-bottom,0px))}
 @media (max-height:430px){.carpic{max-width:180px!important}#overlay .card{padding:12px 18px;gap:7px}#overlay .stars{font-size:26px}#overlay .pay{font-size:28px}h1{font-size:36px}}
+.rackcar{max-width:210px!important;margin:-4px 0 -8px!important}@media (max-height:430px){.rackcar{max-width:130px!important}}
 .carpic{display:block;width:100%;max-width:300px;height:auto;align-self:center;margin:-6px 0 -4px}
 .exotic{align-self:center;font-family:var(--display);font-weight:800;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#1a1300;background:linear-gradient(90deg,#f7d774,#e2a93b);border-radius:999px;padding:3px 12px}
 .rack{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
@@ -696,7 +697,7 @@ function showArrival(){const c=CUSTOMERS[S.nextCust]||CUSTOMERS[0];const w=WINDO
     +'<div class="row"><button id="pullBtn">Pull it into the bay</button><button id="shopBtn" class="ghost">Shop · '+money(S.cash)+'</button></div>';
   $('pullBtn').addEventListener('click',()=>{audio();showRack(c)});$('shopBtn').addEventListener('click',()=>showShop());$('overlay').hidden=false}
 function showRack(c){jobCust=c;const shownAt=performance.now();
-  $('panel').innerHTML='<div class="eyebrow">Film rack</div><div class="big">Pick the film</div><p class="ask">“'+c.ask+'”</p><p>Work order: '+c.shade+' tint</p>'
+  $('panel').innerHTML='<div class="eyebrow">Film rack</div><div class="big">Pick the film</div>'+(DEALER?'<img class="carpic rackcar" src="'+c.img+'" alt="'+c.car+'">':'')+'<p class="ask">“'+c.ask+'”</p><p>Work order: '+c.shade+' tint</p>'
     +'<div class="rack">'+SHADES.map((f,i)=>'<button class="roll" data-i="'+i+'" style="--d:'+(0.97-f.v*1.15).toFixed(2)+'"><i></i>'+f.l+'</button>').join('')+'</div>';
   $('panel').querySelectorAll('.roll').forEach(b=>b.addEventListener('click',()=>{if(performance.now()-shownAt<400)return;const f=SHADES[+b.dataset.i];jobVlt=f.v;wrongShade=f.l!==c.shade.split(' ')[0];
     $('overlay').hidden=true;newJob();if(wrongShade)msg('Hmm, '+f.l+' film. Was that the right roll?')}))}
@@ -714,12 +715,14 @@ $('startBtn').addEventListener('click',()=>{audio();showArrival()});
 let DEALER=null;
 const DEALER_CARS={sedan:['assets/car-silver.png','assets/car-red.png','assets/car-black.png','assets/car-white.png','assets/car-blue.png'],
   suv:['assets/exotic-purple-suv.png'],ev:['assets/exotic-black-hypercar.png'],sport:['assets/exotic-lime-supercar.png','assets/exotic-orange-gt.png']};
+const VELA=['corsa','strada','terra','grande','volta','saetta','tempesta','furia'];
 window.addEventListener('message',e=>{const d=e.data;if(!d||d.type!=='tintJob')return;
   DEALER=d;document.body.classList.add('dealer');
-  const imgs=DEALER_CARS[d.carType]||DEALER_CARS.sedan,img=imgs[Math.floor(Math.random()*imgs.length)];
+  // the exact car that was sold (Vela models); older jobs without a model fall back to a car of the same type
+  const imgs=DEALER_CARS[d.carType]||DEALER_CARS.sedan,img=VELA.includes(d.model)?'assets/vela-'+d.model+'.png':imgs[Math.floor(Math.random()*imgs.length)];
   const sh=SHADES[Math.floor(Math.random()*4)];
   const c={name:d.buyer||'Your buyer',car:d.carName||'new car',shade:sh.l,vlt:sh.v,img,tinted:img.replace('.png','-tinted.png'),
-    pay:d.pay||1400,ask:'Just bought it. Make the windows look right.',exotic:d.carType==='sport'};
+    pay:d.pay||1400,ask:'Just bought it. Make the windows look right.',exotic:d.carType==='sport'||['tempesta','furia'].includes(d.model)};
   S={cash:0,jobs:0,up:{},earned:0,ratings:[]};S.nextWin='front';
   $('jobLabel').textContent='Dealership job';$('overlay').classList.remove('title');audio();showRack(c)});
 function dealerFinish(stars,pay,tip,say){$('meter').hidden=true;ding(stars);

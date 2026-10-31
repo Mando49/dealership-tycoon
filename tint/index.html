@@ -174,7 +174,12 @@ const UPGRADES=[
   {id:'slip',name:'Slow-dry slip solution',desc:'Film stays workable 35 seconds longer.',cost:250},
   {id:'hand',name:'Steady hand training',desc:'Faster pulls still work. Fewer "too fast" warnings.',cost:400},
   {id:'light',name:'Inspection light',desc:'Magnifier spots missed bubbles from farther away.',cost:200},
-  {id:'sign',name:'Sign on the Strip',desc:'Customers pay 20% more.',cost:800}];
+  {id:'sign',name:'Sign on the Strip',desc:'Customers pay 20% more.',cost:800},
+  {id:'heatpro',name:'Pro heat gun',desc:'Variable temp. Shrinks fingers faster and is harder to burn.',cost:450,img:'assets/tool-heat-gun.png'},
+  {id:'air',name:'Dust-free bay',desc:'Air filters in the bay. Less dirt on the glass to scrape.',cost:500},
+  {id:'lounge',name:'Customer lounge',desc:'Coffee and a couch. Happy customers tip $15 more on 4★ and 5★ windows.',cost:600},
+  {id:'apprentice',name:'Hire an apprentice',desc:'Does the microfiber wipe-down for you after every squeegee.',cost:1200},
+  {id:'ceramic',name:'Ceramic film line',desc:'Sell premium ceramic film. Customers pay 25% more.',cost:1500}];
 const has=id=>!!S.up[id];
 const dryTime=()=>DRY_TIME+(has('slip')?35:0);
 // film rack: shade → light let through
@@ -464,7 +469,8 @@ function wipeAt(h){maskDot(rmg,h.x,h.y,40,false);let changed=false;smudge.forEac
 function finishCut(){const missed=edgePts.filter(p=>!p.cut);for(let i=0;i<missed.length;i+=6)gaps.push({x:missed[i].x,y:missed[i].y,rough:true});sheet.visible=false}
 function startWipe(note){if(phase==='wipe'||phase==='look'||phase==='inspect')return;
   actionKey='';hideHand();squeakOff();makeSmudge();$('meter').hidden=true;
-  phase='wipe';setStep('wipe');setTray('cloth');msg(typeof note==='string'?note:'Wipe the water and squeegee marks off the film and door with the microfiber.');actions([]);draw()}
+  phase='wipe';setStep('wipe');setTray('cloth');msg(typeof note==='string'?note:'Wipe the water and squeegee marks off the film and door with the microfiber.');actions([]);draw();
+  if(has('apprentice')){smudge.forEach(c=>c.dirty=false);rmg.clearRect(0,0,CW,CH);setTimeout(()=>startLook('Your apprentice wiped it down. Grab the magnifier and inspect.'),700)}}
 function startSpray(){
   actionKey='';hideHand();showDoor(true);
   phase='spray';setStep('spray');setTray('spray');msg('Drag over the glass to spray it down.');actions([]);draw()}
@@ -476,7 +482,7 @@ function newJob(){
   setWindow(WINDOWS[S.nextWin]||WINDOWS.front);buildSteps();$('t-heat').hidden=!JW.shrink;fingers=[];burns=0;
   $('jobText').textContent=JW.name+', '+cust.shade+' tint';
   bubbles=[];dirt=[];streaks=[];bubblesPopped=0;dirtCleaned=0;actionKey='';resetWet();
-  dirt=scatter(9,3.5,3);gaps=[];cleared=[];buildEdge();lastInsideOff=false;
+  dirt=scatter(has('air')?4:9,3.5,3);gaps=[];cleared=[];buildEdge();lastInsideOff=false;
   smudge=[];spotsLeft=0;sheet.visible=false;jobStart=performance.now();view='work';$('meter').hidden=true;
   startSpray();
 }
@@ -509,9 +515,9 @@ function startShrink(){phase='shrink';setStep('shrink');setTray('heat');burns=0;
 function heatTick(dt){if(phase!=='shrink'||!down||!heatAt)return;dt=Math.min(dt,0.1);let changed=false;
   let near=null,nd=60;fingers.forEach(f=>{const d=Math.hypot(f.x-heatAt.x,f.y-heatAt.y);if(d<nd){nd=d;near=f}});
   [near].filter(f=>f&&!f.burnt).forEach(f=>{const d=nd;
-    f.heat+=dt*(1.25-d/80);changed=true;
+    f.heat+=dt*(1.25-d/80)*(has('heatpro')?1.4:1);changed=true;
     if(!f.done&&f.heat>=1){f.done=true;popSound()}
-    if(f.heat>=2.1){f.burnt=true;burns++;noise(0.25,500,1.5,0.3);msg('Too long! You burned the film there.')}});
+    if(f.heat>=(has('heatpro')?2.9:2.1)){f.burnt=true;burns++;noise(0.25,500,1.5,0.3);msg('Too long! You burned the film there.')}});
   if(Math.random()<dt*6)noise(0.08,700,0.6,0.05);
   if(changed){draw();const left=fingers.filter(f=>!f.done&&!f.burnt).length;
     if(left===0){const key='done';if(key!==actionKey){actionKey=key;msg(burns?'Shrunk, with '+burns+' burn mark'+(burns===1?'':'s')+'.':'All the fingers are down. Nice heat work.');actions([['Grab the squeegee',startSqueegee]])}}
@@ -535,12 +541,13 @@ function startLook(note){if(phase==='look'||phase==='inspect')return;spotsLeft=M
   msg(typeof note==='string'?note:'Move the magnifier over the glass. Missed bubbles show up red.');
   actions([['Show the customer',finish]]);draw()}
 function finish(){
+  const plan=DEALER?DEALER.plan:S.carPlan, lastWin=!plan||plan.length<=1;
   film.material=new THREE.MeshBasicMaterial({color:0x05070a,transparent:true,opacity:0.92-jobVlt*0.85,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2});
   $('revealCar').src=cust.tinted||cust.img;$('revealCar').alt=cust.name+"'s "+cust.car+' with fresh '+cust.shade+' tint';
   const used=SHADES.find(f=>f.v===jobVlt);
   $('revealTag').textContent=wrongShade?'Used '+used.l+' · wanted '+cust.shade:cust.shade+' tint · done';
   $('revealTag').style.background=wrongShade?'#7a1f1f':'';
-  setTimeout(()=>{showDoor(false);document.body.classList.add('revealing');const r=$('reveal');r.classList.remove('in');r.hidden=false;void r.offsetWidth;r.classList.add('in')},250);
+  if(lastWin)setTimeout(()=>{showDoor(false);document.body.classList.add('revealing');const r=$('reveal');r.classList.remove('in');r.hidden=false;void r.offsetWidth;r.classList.add('in')},250);
   phase='inspect';setStep('look');setTray('');tool.visible=false;bottle.visible=false;squeakOff();view='wide';
   const left=bubbles.length, trapped=bubbles.filter(q=>q.stuck).length, secs=Math.round((performance.now()-jobStart)/1000);
   const ng=gaps.length,faults=(left+ng+spotsLeft+burns*2)*(cust.exotic?2:1);
@@ -550,6 +557,8 @@ function finish(){
   let pay=Math.round(base*stars/5/5)*5, tip=0;
   if(stars===5)tip=cust.exotic?Math.round(base*0.25/5)*5:(secs<75?20:0);
   if(has('sign')){pay=Math.round(pay*1.2/5)*5;tip=Math.round(tip*1.2/5)*5}
+  if(has('ceramic')){pay=Math.round(pay*1.25/5)*5;tip=Math.round(tip*1.25/5)*5}
+  if(has('lounge')&&stars>=4&&!DEALER)tip+=15;
   if(wrongShade){pay=Math.round(pay/2/5)*5;tip=0}
   if(stars===1)pay=0;
   const lines={5:["Flawless. Not a single bubble. Here's a little extra.","Looks factory. I'm sending my brother in."],
@@ -558,17 +567,24 @@ function finish(){
     2:["There's bubbles everywhere, man.","I'm paying half. Fix it next time."],
     1:["I'm not paying for that. Redo it."]}[stars];
   const say=wrongShade?'That\'s not the shade I asked for. I\'m paying half.':lines[Math.floor(Math.random()*lines.length)];
-  if(DEALER){dealerFinish(stars,pay,tip,say);return}
+  const detail=left+' bubble'+(left===1?'':'s')+' left'+(trapped?' ('+trapped+' trapped dirt)':'')+(ng?' · '+ng+' light gap'+(ng===1?'':'s'):'')+(spotsLeft?' · '+spotsLeft+' water spot'+(spotsLeft===1?'':'s'):'')+(burns?' · '+burns+' burn mark'+(burns===1?'':'s'):'')+' · '+secs+' s';
+  if(DEALER){DEALER.got=(DEALER.got||0)+pay+tip;DEALER.stars.push(stars);
+    if(!lastWin){plan.shift();S.nextWin=plan[0];winDone(stars,pay,tip,detail);return}
+    dealerFinish(Math.round(DEALER.stars.reduce((a,b)=>a+b,0)/DEALER.stars.length),DEALER.got,0,say);return}
   const before=unlocked().map(w=>w.key);
   S.cash+=pay+tip;S.earned+=pay+tip;S.jobs++;S.ratings.push(stars);if(S.ratings.length>10)S.ratings.shift();
   const fresh=unlocked().filter(w=>before.indexOf(w.key)<0);
-  pickNext(fresh[0]);save();showRating();$('cash').textContent=money(S.cash);$('meter').hidden=true;
+  S.carPay=(S.carPay||0)+pay+tip;S.carStars=(S.carStars||[]).concat([stars]);
+  if(!lastWin){S.carPlan.shift();S.nextWin=S.carPlan[0];save();showRating();$('cash').textContent=money(S.cash);winDone(stars,pay,tip,detail,fresh);return}
+  const carPay=S.carPay,nWin=S.carStars.length;
+  pickNext();save();showRating();$('cash').textContent=money(S.cash);$('meter').hidden=true;
   ding(stars);
   $('panel').innerHTML='<div class="eyebrow">'+cust.name+' says</div><div class="stars">'+'★'.repeat(stars)+'<span style="color:#3a414b">'+'★'.repeat(5-stars)+'</span></div>'
     +'<p style="color:var(--fg);font-size:17px">“'+say+'”</p>'
     +'<div class="pay">'+money(pay)+(tip?' <small>+ '+money(tip)+' TIP</small>':'')+'</div>'
     +'<p>'+left+' bubble'+(left===1?'':'s')+' left'+(trapped?' ('+trapped+' trapped dirt)':'')+(ng?' · '+ng+' light gap'+(ng===1?'':'s'):'')+(spotsLeft?' · '+spotsLeft+' water spot'+(spotsLeft===1?'':'s'):'')+(burns?' · '+burns+' burn mark'+(burns===1?'':'s'):'')+' · '+secs+' s · '+dirtCleaned+' dirt cleaned · '+bubblesPopped+' bubbles out</p>'
-    +(fresh.length?'<div class="exotic">Unlocked: '+fresh.map(w=>w.name).join(', ')+' jobs</div>':'')
+    +(nWin>1?'<p style="color:var(--fg)">Whole car: <b>'+money(carPay)+'</b> for '+nWin+' windows</p>':'')
+    +(fresh.length?'<div class="exotic">Unlocked: '+fresh.map(w=>w.name).join(', ')+'. Every car from now on gets it.</div>':'')
     +(rateNote()?'<p style="font-size:13px">'+rateNote()+'</p>':'')
     +'<div class="row"><button id="nextBtn">Next customer</button></div>';
   $('nextBtn').addEventListener('click',()=>showArrival());
@@ -577,6 +593,15 @@ function finish(){
   msg('');actions([]);
 }
 
+// one window of the car is done: show how it went, then move on to the next window of the same car
+function winDone(stars,pay,tip,detail,fresh){$('meter').hidden=true;ding(stars);
+  const nx=WINDOWS[S.nextWin];
+  $('panel').innerHTML='<div class="eyebrow">'+JW.name+' done</div><div class="stars">'+'★'.repeat(stars)+'<span style="color:#3a414b">'+'★'.repeat(5-stars)+'</span></div>'
+    +'<div class="pay">'+money(pay)+(tip?' <small>+ '+money(tip)+' TIP</small>':'')+'</div><p>'+detail+'</p>'
+    +(fresh&&fresh.length?'<div class="exotic">Unlocked: '+fresh.map(w=>w.name).join(', ')+'. The next car gets it.</div>':'')
+    +'<div class="row"><button id="nextBtn">Next: '+nx.name+'</button></div>';
+  $('nextBtn').addEventListener('click',()=>{$('overlay').hidden=true;newJob()});
+  $('overlay').classList.remove('side','title');setTimeout(()=>{$('overlay').hidden=false},700);msg('');actions([])}
 // ---------- pointer → window surface
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
 let down=false,lastHit=null,lastT=0,speedEMA=0;
@@ -685,21 +710,24 @@ loop();
 // regulars come in order; exotics only once the shop rating is 4.0+ (after 2 jobs)
 function exoticsOK(){return S.jobs>=2&&shopRating()>=4}
 function rateNote(){if(S.jobs<2)return '';return exoticsOK()?'':'Exotic owners only come to shops rated 4.0★ or better.'}
+// a car gets every window you've unlocked, in order: front door, rear door, back glass
+const winOrder=()=>unlocked().map(w=>w.key);
 function pickNext(forceWin){const reg=CUSTOMERS.map((c,i)=>i).filter(i=>!CUSTOMERS[i].exotic),ex=CUSTOMERS.map((c,i)=>i).filter(i=>CUSTOMERS[i].exotic);
   S.nextCust=(exoticsOK()&&Math.random()<0.4)?ex[Math.floor(Math.random()*ex.length)]:reg[(S.reg=(typeof S.reg==='number'?S.reg+1:0))%reg.length];
-  const u=unlocked();S.nextWin=forceWin?forceWin.key:u[Math.floor(Math.random()*u.length)].key}
-if(typeof S.nextCust!=='number')pickNext();
-function showArrival(){const c=CUSTOMERS[S.nextCust]||CUSTOMERS[0];const w=WINDOWS[S.nextWin]||WINDOWS.front;$('overlay').classList.remove('title','side');$('reveal').hidden=true;document.body.classList.remove('revealing');
+  S.carPlan=winOrder();S.nextWin=S.carPlan[0];S.carPay=0;S.carStars=[]}
+if(typeof S.nextCust!=='number'||!Array.isArray(S.carPlan)||!S.carPlan.length)pickNext();
+function showArrival(){const c=CUSTOMERS[S.nextCust]||CUSTOMERS[0];const plan=(S.carPlan||['front']).map(k=>WINDOWS[k]);$('overlay').classList.remove('title','side');$('reveal').hidden=true;document.body.classList.remove('revealing');
   $('panel').innerHTML='<div class="eyebrow">Customer pulling in</div><img class="carpic" src="'+c.img+'" alt="'+c.name+'\'s '+c.car+'">'
     +(c.exotic?'<div class="exotic">Exotic · pays '+money(c.pay)+' · picky</div>':'')
-    +'<div class="big">'+c.name+' · '+c.car+'</div><p class="ask">“'+c.ask+'”</p><p>'+w.name+', '+c.shade+' tint · '+money(Math.round((c.pay||BASE_PAY)*w.payMul/5)*5)+'</p>'
-    +(w.shrink?'<p style="font-size:13px">Curved glass: you will need the heat gun.</p>':'')
+    +'<div class="big">'+c.name+' · '+c.car+'</div>'+(S.carPay?'<p>Back in the bay to finish the car.</p>':'<p class="ask">“'+c.ask+'”</p>')
+    +'<p>'+plan.map(x=>x.name).join(' → ')+' · '+c.shade+' tint · '+money(plan.reduce((a,x)=>a+Math.round((c.pay||BASE_PAY)*x.payMul/5)*5,0))+'</p>'
+    +(plan.some(x=>x.shrink)?'<p style="font-size:13px">Curved back glass: you will need the heat gun.</p>':'')
     +'<div class="row"><button id="pullBtn">Pull it into the bay</button><button id="shopBtn" class="ghost">Shop · '+money(S.cash)+'</button></div>';
-  $('pullBtn').addEventListener('click',()=>{audio();showRack(c)});$('shopBtn').addEventListener('click',()=>showShop());$('overlay').hidden=false}
+  $('pullBtn').addEventListener('click',()=>{audio();if(S.carPay&&S.carVlt){jobCust=c;jobVlt=S.carVlt;wrongShade=!!S.carWrong;$('overlay').hidden=true;newJob();return}showRack(c)});$('shopBtn').addEventListener('click',()=>showShop());$('overlay').hidden=false}
 function showRack(c){jobCust=c;const shownAt=performance.now();
   $('panel').innerHTML='<div class="eyebrow">Film rack</div><div class="big">Pick the film</div>'+(DEALER?'<img class="carpic rackcar" src="'+c.img+'" alt="'+c.car+'">':'')+'<p class="ask">“'+c.ask+'”</p><p>Work order: '+c.shade+' tint</p>'
     +'<div class="rack">'+SHADES.map((f,i)=>'<button class="roll" data-i="'+i+'" style="--d:'+(0.97-f.v*1.15).toFixed(2)+'"><i></i>'+f.l+'</button>').join('')+'</div>';
-  $('panel').querySelectorAll('.roll').forEach(b=>b.addEventListener('click',()=>{if(performance.now()-shownAt<400)return;const f=SHADES[+b.dataset.i];jobVlt=f.v;wrongShade=f.l!==c.shade.split(' ')[0];
+  $('panel').querySelectorAll('.roll').forEach(b=>b.addEventListener('click',()=>{if(performance.now()-shownAt<400)return;const f=SHADES[+b.dataset.i];jobVlt=f.v;wrongShade=f.l!==c.shade.split(' ')[0];if(!DEALER){S.carVlt=jobVlt;S.carWrong=wrongShade}
     $('overlay').hidden=true;newJob();if(wrongShade)msg('Hmm, '+f.l+' film. Was that the right roll?')}))}
 function showShop(){if(!$('overlay').hidden&&!$('panel').querySelector('.ups'))showShop.back=$('panel').innerHTML;if(!$('panel').querySelector('.ups'))showShop.midJob=$('overlay').hidden&&phase!=='idle'&&phase!=='inspect';
   $('panel').innerHTML='<div class="eyebrow">Shop upgrades</div><div class="big">Cash: '+money(S.cash)+'</div><div class="ups">'
@@ -722,8 +750,8 @@ window.addEventListener('message',e=>{const d=e.data;if(!d||d.type!=='tintJob')r
   const imgs=DEALER_CARS[d.carType]||DEALER_CARS.sedan,img=VELA.includes(d.model)?'assets/vela-'+d.model+'.png':imgs[Math.floor(Math.random()*imgs.length)];
   const sh=SHADES[Math.floor(Math.random()*4)];
   const c={name:d.buyer||'Your buyer',car:d.carName||'new car',shade:sh.l,vlt:sh.v,img,tinted:img.replace('.png','-tinted.png'),
-    pay:d.pay||1400,ask:'Just bought it. Make the windows look right.',exotic:d.carType==='sport'||['tempesta','furia'].includes(d.model)};
-  S={cash:0,jobs:0,up:{},earned:0,ratings:[]};S.nextWin='front';
+    pay:(d.pay||1400)/3.9,ask:'Just bought it. Make the windows look right.',exotic:d.carType==='sport'||['tempesta','furia'].includes(d.model)};
+  S={cash:0,jobs:0,up:{},earned:0,ratings:[]};S.nextWin='front';DEALER.plan=['front','rear','back'];DEALER.stars=[];DEALER.got=0;
   $('jobLabel').textContent='Dealership job';$('overlay').classList.remove('title');audio();showRack(c)});
 function dealerFinish(stars,pay,tip,say){$('meter').hidden=true;ding(stars);
   const total=pay+tip;toDealer({type:'tintDone',stars,pay:total,full:DEALER.pay});

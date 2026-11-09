@@ -269,11 +269,11 @@ function glassShape(){const s=new THREE.Shape();WIN.forEach((p,i)=>i?s.lineTo(p[
 
 // film layer = canvas texture over the front window
 // work view = photo from inside the car looking at the door glass (tint goes on the inside)
-const FRONT={src:'assets/door-inside.jpg',w:1774,h:887,
-  poly:[[212,392],[215,330],[250,280],[330,200],[420,100],[530,0],[1545,0],[1520,100],[1480,200],[1440,300],[1405,392]]};
+const FRONT={src:'assets/door-inside.jpg',w:1774,h:987,
+  poly:[[212,492],[215,430],[250,380],[330,300],[420,200],[530,100],[570,66],[1500,62],[1530,80],[1520,200],[1480,300],[1440,400],[1405,492]]};
 // trims photographed separately have their own size and glass outline
-const FRONT_TRIMS={tan:{src:'assets/door-inside-tan.jpg',w:1672,h:941,poly:[[205,402],[210,345],[250,280],[330,200],[400,120],[480,40],[505,0],[1495,0],[1455,100],[1415,200],[1385,300],[1362,402]]},
-  red:{src:'assets/door-inside-red.jpg',w:1672,h:941,poly:[[205,402],[210,345],[250,280],[330,200],[400,120],[480,40],[505,0],[1495,0],[1455,100],[1415,200],[1385,300],[1362,402]]},cream:{src:'assets/door-inside-cream.jpg',w:1600,h:905,poly:[[196,387],[201,332],[239,269],[316,192],[383,115],[459,38],[483,0],[1431,0],[1392,96],[1354,192],[1325,289],[1303,387]]}};
+const FRONT_TRIMS={tan:{src:'assets/door-inside-tan.jpg',w:1672,h:1241,poly:[[205,702],[210,645],[250,580],[330,500],[400,420],[480,340],[530,305],[590,290],[1488,292],[1496,310],[1455,400],[1415,500],[1385,600],[1362,702]]},
+  red:{src:'assets/door-inside-red.jpg',w:1672,h:1241,poly:[[205,702],[210,645],[250,580],[330,500],[400,420],[480,340],[530,305],[590,290],[1488,292],[1496,310],[1455,400],[1415,500],[1385,600],[1362,702]]},cream:{src:'assets/door-inside-cream.jpg',w:1600,h:1195,poly:[[196,677],[201,620],[239,558],[316,481],[383,405],[459,328],[510,295],[565,280],[1428,280],[1432,300],[1392,386],[1354,481],[1325,577],[1303,677]]}};
 // every window you can work on: photo from inside the car + the glass outline in that photo's pixels
 const WINDOWS={
   front:{key:'front',name:'Front door',...FRONT,trims:FRONT_TRIMS,unlock:0,payMul:1},

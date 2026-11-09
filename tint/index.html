@@ -269,15 +269,15 @@ function glassShape(){const s=new THREE.Shape();WIN.forEach((p,i)=>i?s.lineTo(p[
 
 // film layer = canvas texture over the front window
 // work view = photo from inside the car looking at the door glass (tint goes on the inside)
-const FRONT={src:'assets/door-inside.jpg',w:1672,h:941,
-  poly:[[92,648],[96,445],[107,440],[143,400],[201,360],[261,320],[324,280],[391,240],[461,200],[538,160],[621,120],[758,80],[900,58],[1080,44],[1272,38],[1434,38],[1540,52],[1603,80],[1602,120],[1593,160],[1576,200],[1562,240],[1547,280],[1534,320],[1520,360],[1507,400],[1495,440],[1483,480],[1471,520],[1458,560],[1449,600],[1430,632],[1395,648]]};
+const FRONT={src:'assets/door-inside.jpg',w:1344,h:540,
+  poly:[[132,375],[140,317],[200,255],[300,170],[400,85],[500,8],[560,0],[1330,0],[1318,30],[1300,115],[1280,210],[1262,285],[1248,340],[1210,347],[700,361],[300,372]]};
 // every window you can work on: photo from inside the car + the glass outline in that photo's pixels
 const WINDOWS={
   front:{key:'front',name:'Front door',...FRONT,unlock:0,payMul:1},
-  rear:{key:'rear',name:'Rear door',src:'assets/rear-door-inside.jpg',w:1344,h:752,unlock:1000,payMul:1.15,
-    poly:[[286,96],[318,70],[380,58],[1004,57],[1024,66],[1031,95],[1031,432],[292,406],[283,230]]},
-  back:{key:'back',name:'Back glass',src:'assets/back-glass-inside.jpg',w:1344,h:752,unlock:2500,payMul:1.75,shrink:true,
-    poly:[[122,240],[132,218],[170,200],[400,186],[670,180],[940,184],[1190,206],[1222,226],[1230,246],[1190,330],[1140,410],[1104,456],[1088,463],[260,463],[244,456],[200,400],[150,320]]}};
+  rear:{key:'rear',name:'Rear door',src:'assets/rear-door-inside.jpg',w:1344,h:540,unlock:1000,payMul:1.15,
+    poly:[[300,333],[300,67],[312,32],[340,13],[985,6],[998,21],[996,93],[987,333]]},
+  back:{key:'back',name:'Back glass',src:'assets/back-glass-inside.jpg',w:1344,h:540,unlock:2500,payMul:1.75,shrink:true,
+    poly:[[128,136],[200,115],[400,98],[670,91],[950,96],[1150,115],[1218,138],[1200,179],[1160,253],[1125,317],[1105,343],[245,343],[215,306],[180,242],[145,179]]}};
 let JW=WINDOWS.front,DOOR=FRONT,DBX,DBY,DBW,DBH,CH;const CW=512;
 function measure(){DBX=Math.min(...DOOR.poly.map(p=>p[0]));DBY=Math.min(...DOOR.poly.map(p=>p[1]));
   DBW=Math.max(...DOOR.poly.map(p=>p[0]))-DBX;DBH=Math.max(...DOOR.poly.map(p=>p[1]))-DBY;CH=Math.round(CW*DBH/DBW)}
